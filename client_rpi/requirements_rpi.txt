@@ -1,0 +1,6 @@
+# Minimal dependencies for Raspberry Pi 5 Client
+# Install on your Raspberry Pi: pip install -r requirements_rpi.txt
+requests>=2.31.0
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+websockets>=12.0

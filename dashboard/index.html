@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreeAPI AI Runner Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header Section -->
+        <header class="glass-panel">
+            <div class="logo-area">
+                <h1>Server Dashboard</h1>
+            </div>
+            <div class="controls-area">
+                <div class="status-indicator" id="status-indicator">
+                    <span class="pulse-dot"></span>
+                    <span id="status-text">Checking Status...</span>
+                </div>
+                <div class="action-buttons">
+                    <button id="btn-start" class="btn primary" disabled>Start Server</button>
+                    <button id="btn-stop" class="btn danger" disabled>Stop Server</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-grid">
+            
+            <!-- Logs Terminal -->
+            <section class="glass-panel logs-section">
+                <div class="panel-header">
+                    <h2>Terminal Logs</h2>
+                    <button id="btn-clear-logs" class="btn small">Clear</button>
+                </div>
+                <div class="terminal-container" id="terminal">
+                    <!-- Logs will be appended here -->
+                </div>
+            </section>
+
+            <!-- API Calls -->
+            <section class="glass-panel calls-section">
+                <div class="panel-header">
+                    <h2>Recent Calls</h2>
+                    <span class="call-count" id="call-count">0 calls</span>
+                </div>
+                <div class="calls-list" id="calls-list">
+                    <div class="empty-state">No calls yet.</div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
