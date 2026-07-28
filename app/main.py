@@ -644,3 +644,9 @@ async def infer_completion(request: Request):
     elapsed_ms = (time.perf_counter() - start_time) * 1000.0
     result["inference_time_ms"] = round(elapsed_ms, 2)
     return CompletionResponse(**result)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    logger.info(f"Starting Uvicorn server on {config.HOST}:{config.PORT}...")
+    uvicorn.run("app.main:app", host=config.HOST, port=config.PORT, reload=False)
