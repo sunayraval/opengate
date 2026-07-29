@@ -34,8 +34,7 @@ class Settings(BaseSettings):
     USE_FP16: bool = True
 
     # AI Model Defaults
-    DEFAULT_ACTION_MODEL: str = "clip-vit-base-patch32"
-    DEFAULT_DETECTION_MODEL: str = "yolov8n.pt"
+    DEFAULT_COMPLETION_MODEL: str = "openbmb/MiniCPM-V"
     WEIGHTS_DIR: str = "./weights"
 
     # Pydantic Settings configuration

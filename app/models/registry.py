@@ -33,8 +33,7 @@ class ModelRegistry:
             if getattr(self, "_initialized", False):
                 return
             self.models: Dict[str, BaseVisionModel] = {}
-            self.default_action_model: Optional[str] = None
-            self.default_detection_model: Optional[str] = None
+            self.default_completion_model: Optional[str] = None
             self._model_lock = threading.Lock()
             self._initialized = True
 
@@ -48,10 +47,8 @@ class ModelRegistry:
         """
         with self._model_lock:
             self.models[name] = model_instance
-            if model_instance.model_type == "action" and self.default_action_model is None:
-                self.default_action_model = name
-            elif model_instance.model_type == "detection" and self.default_detection_model is None:
-                self.default_detection_model = name
+            if model_instance.model_type == "vision_language" and self.default_completion_model is None:
+                self.default_completion_model = name
             logger.info(f"Registered model: {name} (type: {model_instance.model_type}, device: {model_instance.device})")
 
     def load_model(self, name: str) -> None:
@@ -104,12 +101,7 @@ class ModelRegistry:
         """
         target_name = name
         if target_name is None:
-            if model_type == "action":
-                target_name = self.default_action_model
-            elif model_type == "detection":
-                target_name = self.default_detection_model
-            else:
-                raise ValueError(f"Unknown model_type: {model_type}. Expected 'action' or 'detection'.")
+            target_name = self.default_completion_model
 
         if target_name is None or target_name not in self.models:
             if target_name is not None and target_name not in self.models:
@@ -156,33 +148,20 @@ class ModelRegistry:
 
     def initialize_defaults(self) -> None:
         """
-        Instantiate and register default vision models (OpenCLIP and YOLOv8n),
-        and pre-load them into VRAM so the server is instantly warm on startup.
+        Instantiate and register default completion model (MiniCPM-V),
+        and pre-load it into VRAM so the server is instantly warm on startup.
         """
-        # Import here to prevent circular dependency issues
-        from app.models.clip_model import OpenCLIPModel
-        from app.models.detector_model import YOLODetectorModel
         from app.models.minicpm_model import MiniCPMVModel
 
-        logger.info("Initializing default vision models...")
-        
-        # Register and warm up OpenCLIP model for action classification
-        clip_model = OpenCLIPModel(name="clip-vit-base-patch32", clip_model_name="ViT-B-32", pretrained="laion2b_s34b_b79k")
-        self.register_model(clip_model.model_name, clip_model)
-        self.default_action_model = clip_model.model_name
-        self.load_model(clip_model.model_name)
-
-        # Register and warm up YOLOv8 model for object detection
-        yolo_model = YOLODetectorModel(name="yolov8n.pt", weights_path="yolov8n.pt")
-        self.register_model(yolo_model.model_name, yolo_model)
-        self.default_detection_model = yolo_model.model_name
-        self.load_model(yolo_model.model_name)
-
-        # Register MiniCPM-V Vision-Language Model in the selection (lazy loaded by default to conserve VRAM)
+        logger.info("Initializing default completion model...")
         minicpm_model = MiniCPMVModel(name="openbmb/MiniCPM-V", model_path="openbmb/MiniCPM-V")
         self.register_model(minicpm_model.model_name, minicpm_model)
-
-        logger.info("Default vision models initialized and loaded into VRAM.")
+        self.default_completion_model = minicpm_model.model_name
+        
+        # Pre-load to VRAM immediately
+        self.load_model(minicpm_model.model_name)
+        
+        logger.info("Default completion model initialized and loaded into VRAM.")
 
     def get_vram_usage_mb(self) -> float:
         """

@@ -9,8 +9,11 @@ import cv2
 import numpy as np
 import time
 
-# The exact local WiFi IP address of your Windows PC
-SERVER_URL = "http://10.132.195.6:8000"
+from discovery import auto_discover_server
+
+SERVER_URL = auto_discover_server()
+if not SERVER_URL:
+    SERVER_URL = "http://127.0.0.1:8000"
 
 def test_connection():
     print(f"=== 🔍 Testing Connection to {SERVER_URL} ===")
@@ -51,20 +54,23 @@ def test_connection():
         image_bytes = encoded_image.tobytes()
         print(f"📦 Payload size: {len(image_bytes)/1024:.1f} KB")
         
-        # We will use the object detection endpoint since it just needs an image (no action lines needed!)
-        endpoint = f"{SERVER_URL}/api/v1/infer/detect"
+        # We will use the chat completions endpoint
+        endpoint = f"{SERVER_URL}/v1/chat/completions"
         print(f"🚀 Sending image to {endpoint}...")
         
         start_time = time.time()
         files = {"file": ("test.jpg", image_bytes, "image/jpeg")}
-        res = requests.post(endpoint, files=files, timeout=5.0)
+        data = {"prompt": "What color is this image?"}
+        res = requests.post(endpoint, files=files, data=data, timeout=10.0)
         latency = (time.time() - start_time) * 1000
         
         if res.status_code == 200:
             data = res.json()
             print(f"✅ SUCCESS! Server processed the image in {latency:.1f}ms")
             print(f"📊 Inference Time (on server): {data.get('inference_time_ms')}ms")
-            print(f"📦 Detections returned: {len(data.get('bounding_boxes', []))}")
+            choices = data.get("choices", [])
+            if choices:
+                print(f"💬 AI Response: {choices[0].get('message', {}).get('content', choices[0].get('text', ''))}")
             print("\n🎉 The connection is fully working!")
         else:
             print(f"❌ FAILED. Status Code: {res.status_code}")
