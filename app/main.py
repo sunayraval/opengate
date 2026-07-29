@@ -266,7 +266,11 @@ async def health_check():
         elif isinstance(model_registry.loaded_models, list):
             loaded_names = [str(m) for m in model_registry.loaded_models]
     elif hasattr(model_registry, "list_models"):
-        loaded_names = [m["name"] for m in model_registry.list_models() if m.get("is_loaded")]
+        models_dict = model_registry.list_models()
+        if isinstance(models_dict, dict):
+            loaded_names = [name for name, info in models_dict.items() if isinstance(info, dict) and info.get("is_loaded")]
+        elif isinstance(models_dict, list):
+            loaded_names = [str(m) for m in models_dict]
 
     return HealthResponse(
         status="ok",
