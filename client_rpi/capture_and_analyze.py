@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-import cv2
 import requests
 import time
 import sys
+import subprocess
+import os
 from discovery import auto_discover_server
 
 def capture_and_analyze(prompt="What do you see in this image? Describe it in detail."):
@@ -14,39 +15,43 @@ def capture_and_analyze(prompt="What do you see in this image? Describe it in de
         
     endpoint = f"{SERVER_URL}/v1/chat/completions"
     
-    # 2. Open the Pi Camera (Camera index 0)
-    print("📷 Initializing camera...")
-    cap = cv2.VideoCapture(0)
+    # 2. Capture using native Raspberry Pi libcamera command
+    print("📷 Initializing Raspberry Pi camera...")
     
-    # Optional: Set resolution to 640x480 to keep the upload fast over the hotspot
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    
-    if not cap.isOpened():
-        print("❌ Error: Could not open the camera. Check your Pi camera connection.")
-        sys.exit(1)
-        
-    # Warm up camera for a second so auto-exposure can adjust
-    time.sleep(1.0)
+    # We use libcamera-jpeg because it's the native, guaranteed way to 
+    # take pictures on modern Raspberry Pi OS without fighting OpenCV drivers.
+    # -t 1000 gives the camera 1 second to warm up and adjust exposure.
+    command = [
+        "libcamera-jpeg",
+        "-o", "capture.jpg",
+        "--width", "640",
+        "--height", "480",
+        "-t", "1000",
+        "--nopreview"
+    ]
     
     print("📸 Snapping a picture...")
-    ret, frame = cap.read()
-    cap.release()
-    
-    if not ret or frame is None:
-        print("❌ Error: Failed to capture an image from the camera.")
+    try:
+        # Run the command and wait for it to finish
+        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except FileNotFoundError:
+        print("❌ Error: 'libcamera-jpeg' command not found. Are you running this on a Raspberry Pi with the camera enabled?")
+        sys.exit(1)
+    except subprocess.CalledProcessError:
+        print("❌ Error: libcamera failed to capture an image. Check your camera ribbon cable!")
         sys.exit(1)
         
-    # 3. Compress the image to JPEG
-    success, encoded_image = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-    if not success:
-        print("❌ Error: Failed to encode the image.")
+    # Read the captured image from disk
+    if not os.path.exists("capture.jpg"):
+        print("❌ Error: capture.jpg was not created.")
         sys.exit(1)
         
-    image_bytes = encoded_image.tobytes()
+    with open("capture.jpg", "rb") as f:
+        image_bytes = f.read()
+        
     print(f"📦 Captured image! Size: {len(image_bytes)/1024:.1f} KB")
     
-    # 4. Send the image to the AI Server
+    # 3. Send the image to the AI Server
     print(f"🚀 Sending to AI Server at {endpoint}...")
     
     files = {
@@ -77,6 +82,10 @@ def capture_and_analyze(prompt="What do you see in this image? Describe it in de
             
     except requests.exceptions.RequestException as e:
         print(f"❌ Network Error: {e}")
+    finally:
+        # Clean up the temporary image file
+        if os.path.exists("capture.jpg"):
+            os.remove("capture.jpg")
 
 if __name__ == "__main__":
     # You can pass a custom prompt as a command line argument!
