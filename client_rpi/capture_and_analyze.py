@@ -6,7 +6,7 @@ import subprocess
 import os
 from discovery import auto_discover_server
 
-def capture_and_analyze(prompt="What do you see in this image? Describe it in detail."):
+def capture_and_analyze(prompt="You are a robot. Based on this image, output exactly ONE word to avoid obstacles: 'FORWARD', 'LEFT', 'RIGHT', or 'STOP'."):
     # 1. Auto-discover the OpenGate server
     SERVER_URL = auto_discover_server()
     if not SERVER_URL:
@@ -20,9 +20,9 @@ def capture_and_analyze(prompt="What do you see in this image? Describe it in de
     
     # Try the newer 'rpicam-jpeg' (Bookworm), then 'libcamera-jpeg' (Bullseye), then 'raspistill' (Buster)
     camera_cmds = [
-        ["rpicam-jpeg", "-o", "capture.jpg", "--width", "640", "--height", "480", "-t", "1000", "--nopreview"],
-        ["libcamera-jpeg", "-o", "capture.jpg", "--width", "640", "--height", "480", "-t", "1000", "--nopreview"],
-        ["raspistill", "-o", "capture.jpg", "-w", "640", "-h", "480", "-t", "1000", "-n"]
+        ["rpicam-jpeg", "-o", "capture.jpg", "--width", "320", "--height", "240", "-q", "50", "-t", "100", "--nopreview"],
+        ["libcamera-jpeg", "-o", "capture.jpg", "--width", "320", "--height", "240", "-q", "50", "-t", "100", "--nopreview"],
+        ["raspistill", "-o", "capture.jpg", "-w", "320", "-h", "240", "-q", "50", "-t", "100", "-n"]
     ]
     
     print("📸 Snapping a picture...")
@@ -60,7 +60,8 @@ def capture_and_analyze(prompt="What do you see in this image? Describe it in de
     }
     data = {
         "model": "openbmb/MiniCPM-V",
-        "prompt": prompt
+        "prompt": prompt,
+        "max_tokens": "5"
     }
     
     try:
@@ -90,7 +91,7 @@ def capture_and_analyze(prompt="What do you see in this image? Describe it in de
 
 if __name__ == "__main__":
     # You can pass a custom prompt as a command line argument!
-    user_prompt = "What do you see in this image? Describe it in detail."
+    user_prompt = "You are a robot. Based on this image, output exactly ONE word to avoid obstacles: 'FORWARD', 'LEFT', 'RIGHT', or 'STOP'."
     if len(sys.argv) > 1:
         user_prompt = " ".join(sys.argv[1:])
         
