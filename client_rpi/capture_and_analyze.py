@@ -15,30 +15,31 @@ def capture_and_analyze(prompt="What do you see in this image? Describe it in de
         
     endpoint = f"{SERVER_URL}/v1/chat/completions"
     
-    # 2. Capture using native Raspberry Pi libcamera command
+    # 2. Capture using native Raspberry Pi camera commands
     print("📷 Initializing Raspberry Pi camera...")
     
-    # We use libcamera-jpeg because it's the native, guaranteed way to 
-    # take pictures on modern Raspberry Pi OS without fighting OpenCV drivers.
-    # -t 1000 gives the camera 1 second to warm up and adjust exposure.
-    command = [
-        "libcamera-jpeg",
-        "-o", "capture.jpg",
-        "--width", "640",
-        "--height", "480",
-        "-t", "1000",
-        "--nopreview"
+    # Try the newer 'rpicam-jpeg' (Bookworm), then 'libcamera-jpeg' (Bullseye), then 'raspistill' (Buster)
+    camera_cmds = [
+        ["rpicam-jpeg", "-o", "capture.jpg", "--width", "640", "--height", "480", "-t", "1000", "--nopreview"],
+        ["libcamera-jpeg", "-o", "capture.jpg", "--width", "640", "--height", "480", "-t", "1000", "--nopreview"],
+        ["raspistill", "-o", "capture.jpg", "-w", "640", "-h", "480", "-t", "1000", "-n"]
     ]
     
     print("📸 Snapping a picture...")
-    try:
-        # Run the command and wait for it to finish
-        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except FileNotFoundError:
-        print("❌ Error: 'libcamera-jpeg' command not found. Are you running this on a Raspberry Pi with the camera enabled?")
-        sys.exit(1)
-    except subprocess.CalledProcessError:
-        print("❌ Error: libcamera failed to capture an image. Check your camera ribbon cable!")
+    success = False
+    for cmd in camera_cmds:
+        try:
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            success = True
+            break  # It worked! Break out of the loop.
+        except FileNotFoundError:
+            continue  # Command not found on this OS version, try the next one
+        except subprocess.CalledProcessError:
+            print(f"❌ Error: {cmd[0]} ran but failed to capture an image. Check your camera ribbon cable!")
+            sys.exit(1)
+            
+    if not success:
+        print("❌ Error: Could not find rpicam-jpeg, libcamera-jpeg, or raspistill on this system. Is the camera enabled?")
         sys.exit(1)
         
     # Read the captured image from disk
