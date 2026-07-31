@@ -104,14 +104,20 @@ class HuggingFaceVLM(BaseVisionModel):
                     text_content = str(content)
                 clean_msgs.append({"role": role, "content": text_content})
                 
-            res = self.model.chat(
-                image=image,
-                msgs=clean_msgs,
-                tokenizer=tokenizer,
-                sampling=temperature > 0,
-                temperature=temperature if temperature > 0 else 0.7,
-                max_new_tokens=max_tokens
-            )
+            import inspect
+            chat_sig = inspect.signature(self.model.chat)
+            chat_kwargs = {
+                "image": image,
+                "msgs": clean_msgs,
+                "tokenizer": tokenizer,
+                "sampling": temperature > 0,
+                "temperature": temperature if temperature > 0 else 0.7,
+                "max_new_tokens": max_tokens
+            }
+            if "context" in chat_sig.parameters:
+                chat_kwargs["context"] = None
+                
+            res = self.model.chat(**chat_kwargs)
             res_str = res[0] if isinstance(res, tuple) else res
             prompt_tokens = 0
             completion_tokens = 0
