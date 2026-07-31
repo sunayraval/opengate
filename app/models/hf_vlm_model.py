@@ -117,7 +117,14 @@ class HuggingFaceVLM(BaseVisionModel):
             if "context" in chat_sig.parameters:
                 chat_kwargs["context"] = None
                 
-            res = self.model.chat(**chat_kwargs)
+            import torch
+            with torch.no_grad():
+                if self.device == "cuda":
+                    with torch.autocast(device_type="cuda", dtype=self.model.dtype):
+                        res = self.model.chat(**chat_kwargs)
+                else:
+                    res = self.model.chat(**chat_kwargs)
+                    
             res_str = res[0] if isinstance(res, tuple) else res
             prompt_tokens = 0
             completion_tokens = 0
