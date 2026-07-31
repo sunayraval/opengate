@@ -114,7 +114,7 @@ class ModelRegistry:
                 if "mage-vl" in name_lower:
                     new_model = HuggingFaceVLM(name=target_name, model_path="microsoft/Phi-3.5-vision-instruct")
                 elif "minicpm" in name_lower or "openbmb" in name_lower:
-                    new_model = HuggingFaceVLM(name=target_name, model_path="Qwen/Qwen2-VL-7B-Instruct")
+                    new_model = HuggingFaceVLM(name=target_name, model_path="openbmb/MiniCPM-V")
                 elif "yolo" in name_lower or target_name.endswith(".pt"):
                     new_model = YOLODetectorModel(name=target_name, weights_path=target_name)
                 else:
@@ -150,18 +150,18 @@ class ModelRegistry:
 
     def initialize_defaults(self) -> None:
         """
-        Instantiate and register default completion model (Qwen2-VL-7B-Instruct),
+        Instantiate and register default completion model (MiniCPM-V),
         and pre-load it into VRAM so the server is instantly warm on startup.
         """
         from app.models.hf_vlm_model import HuggingFaceVLM
 
         logger.info("Initializing default completion model...")
-        qwen_model = HuggingFaceVLM(name="Qwen/Qwen2-VL-7B-Instruct", model_path="Qwen/Qwen2-VL-7B-Instruct")
-        self.register_model(qwen_model.model_name, qwen_model)
-        self.default_completion_model = qwen_model.model_name
+        default_model = HuggingFaceVLM(name="openbmb/MiniCPM-V", model_path="openbmb/MiniCPM-V")
+        self.register_model(default_model.model_name, default_model)
+        self.default_completion_model = default_model.model_name
         
         # Pre-load to VRAM immediately
-        self.load_model(qwen_model.model_name)
+        self.load_model(default_model.model_name)
         
         logger.info("Default completion model initialized and loaded into VRAM.")
 
