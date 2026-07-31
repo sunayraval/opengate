@@ -44,6 +44,15 @@ class MageVLModel(BaseVisionModel):
             return
 
         logger.info(f"Loading Mage-VL model '{self.model_path}' onto {self.device}...")
+        
+        # --- MONKEY PATCH FOR MICROSOFT REMOTE CODE BUG ---
+        # Microsoft's code uses 'PreTrainedConfig' (capital T), but newer transformers
+        # renamed it to 'PretrainedConfig' (lowercase t). We dynamically patch it here.
+        import transformers.configuration_utils
+        if not hasattr(transformers.configuration_utils, 'PreTrainedConfig'):
+            transformers.configuration_utils.PreTrainedConfig = getattr(transformers.configuration_utils, 'PretrainedConfig', None)
+        # --------------------------------------------------
+        
         from transformers import pipeline
         
         target_dtype = self._get_target_dtype()
