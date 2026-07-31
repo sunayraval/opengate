@@ -51,6 +51,15 @@ class MageVLModel(BaseVisionModel):
         import transformers.configuration_utils
         if not hasattr(transformers.configuration_utils, 'PreTrainedConfig'):
             transformers.configuration_utils.PreTrainedConfig = getattr(transformers.configuration_utils, 'PretrainedConfig', None)
+            
+        # Microsoft's code uses @strict from huggingface_hub on regular classes,
+        # which crashes in newer huggingface-hub versions. We mock it out.
+        import huggingface_hub.dataclasses
+        def dummy_strict(cls=None):
+            if cls is None:
+                return lambda c: c
+            return cls
+        huggingface_hub.dataclasses.strict = dummy_strict
         # --------------------------------------------------
         
         from transformers import pipeline
