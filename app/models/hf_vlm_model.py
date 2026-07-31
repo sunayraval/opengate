@@ -89,11 +89,9 @@ class HuggingFaceVLM(BaseVisionModel):
                         if block.get("type") == "image_url":
                             block["type"] = "image"
 
-        try:
-            text_prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
-        except ValueError:
-            # Fallback for models without a registered chat_template (like MiniCPM-V)
-            text_prompt = ""
+        if hasattr(self.model, "chat"):
+            tokenizer = getattr(self.processor, "tokenizer", self.processor)
+            clean_msgs = []
             for msg in messages:
                 role = msg.get("role", "user")
                 content = msg.get("content", "")
@@ -102,36 +100,69 @@ class HuggingFaceVLM(BaseVisionModel):
                     for block in content:
                         if block.get("type") == "text":
                             text_content += block.get("text", "")
-                        elif block.get("type") == "image":
-                            text_content += "<image>\n"
                 else:
                     text_content = str(content)
-                text_prompt += f"User: {text_content}\n" if role == "user" else f"Assistant: {text_content}\n"
-            text_prompt += "Assistant: "
-        
-        if image is not None:
-            inputs = self.processor(text=[text_prompt], images=[image], return_tensors="pt")
-        else:
-            inputs = self.processor(text=[text_prompt], return_tensors="pt")
-            
-        inputs = inputs.to(self.device)
-        input_len = inputs.input_ids.shape[1]
-        
-        with torch.no_grad():
-            output_ids = self.model.generate(
-                **inputs,
-                max_new_tokens=max_tokens,
-                temperature=temperature,
-                do_sample=temperature > 0
+                clean_msgs.append({"role": role, "content": text_content})
+                
+            res = self.model.chat(
+                image=image,
+                msgs=clean_msgs,
+                tokenizer=tokenizer,
+                sampling=temperature > 0,
+                temperature=temperature if temperature > 0 else 0.7,
+                max_new_tokens=max_tokens
             )
-            
-        out_tokens = output_ids[0]
-        if out_tokens.shape[0] >= input_len and torch.equal(out_tokens[:input_len], inputs.input_ids[0]):
-            generated_ids = out_tokens[input_len:]
+            res_str = res[0] if isinstance(res, tuple) else res
+            prompt_tokens = 0
+            completion_tokens = 0
+            total_tokens = 0
         else:
-            generated_ids = out_tokens
-
-        res_str = self.processor.decode(generated_ids, skip_special_tokens=True)
+            try:
+                text_prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+            except ValueError:
+                # Fallback for models without a registered chat_template
+                text_prompt = ""
+                for msg in messages:
+                    role = msg.get("role", "user")
+                    content = msg.get("content", "")
+                    text_content = ""
+                    if isinstance(content, list):
+                        for block in content:
+                            if block.get("type") == "text":
+                                text_content += block.get("text", "")
+                            elif block.get("type") == "image":
+                                text_content += "<image>\n"
+                    else:
+                        text_content = str(content)
+                    text_prompt += f"User: {text_content}\n" if role == "user" else f"Assistant: {text_content}\n"
+                text_prompt += "Assistant: "
+            
+            if image is not None:
+                inputs = self.processor(text=[text_prompt], images=[image], return_tensors="pt")
+            else:
+                inputs = self.processor(text=[text_prompt], return_tensors="pt")
+                
+            inputs = inputs.to(self.device)
+            input_len = inputs.input_ids.shape[1]
+            
+            with torch.no_grad():
+                output_ids = self.model.generate(
+                    **inputs,
+                    max_new_tokens=max_tokens,
+                    temperature=temperature,
+                    do_sample=temperature > 0
+                )
+                
+            out_tokens = output_ids[0]
+            if out_tokens.shape[0] >= input_len and torch.equal(out_tokens[:input_len], inputs.input_ids[0]):
+                generated_ids = out_tokens[input_len:]
+            else:
+                generated_ids = out_tokens
+    
+            res_str = self.processor.decode(generated_ids, skip_special_tokens=True)
+            prompt_tokens = len(inputs.input_ids[0])
+            completion_tokens = len(generated_ids)
+            total_tokens = prompt_tokens + completion_tokens
 
         elapsed_ms = self.measure_time_ms(start_time)
         return {
@@ -148,9 +179,9 @@ class HuggingFaceVLM(BaseVisionModel):
                 }
             ],
             "usage": {
-                "prompt_tokens": len(inputs.input_ids[0]),
-                "completion_tokens": len(generated_ids),
-                "total_tokens": len(inputs.input_ids[0]) + len(generated_ids)
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens
             },
             "inference_time_ms": round(elapsed_ms, 2),
             "raw_response": res_str
