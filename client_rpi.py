@@ -7,9 +7,47 @@ import base64
 import json
 import os
 import sys
+import socket
+import concurrent.futures
 
-SERVER_URL = "http://172.20.10.2:8000/v1/chat/completions"
 IMAGE_PATH = "capture.jpg"
+
+def auto_discover_server(port=8000):
+    print("🔍 Auto-discovering OpenGate server on the local network...")
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('8.8.8.8', 80))
+        my_ip = s.getsockname()[0]
+    except Exception:
+        my_ip = '127.0.0.1'
+    finally:
+        s.close()
+        
+    base_ip = ".".join(my_ip.split(".")[:-1])
+    
+    def check_ip(ip):
+        url = f"http://{ip}:{port}"
+        try:
+            req = urllib.request.Request(f"{url}/health", method="GET")
+            with urllib.request.urlopen(req, timeout=0.5) as response:
+                if response.status == 200:
+                    return url
+        except Exception:
+            pass
+        return None
+
+    ips_to_check = [f"{base_ip}.{i}" for i in range(1, 255)]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+        results = executor.map(check_ip, ips_to_check)
+        for res in results:
+            if res:
+                print(f"🎯 Found server automatically at: {res}")
+                return res
+                
+    print("❌ Could not auto-discover server. Defaulting to 172.20.10.2.")
+    return "http://172.20.10.2:8000"
+
+SERVER_URL = f"{auto_discover_server()}/v1/chat/completions"
 
 def take_picture():
     print("📷 Initializing Raspberry Pi camera...")
