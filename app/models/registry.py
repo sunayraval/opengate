@@ -109,9 +109,12 @@ class ModelRegistry:
                 from app.models.clip_model import OpenCLIPModel
                 from app.models.detector_model import YOLODetectorModel
                 from app.models.minicpm_model import MiniCPMVModel
+                from app.models.mage_model import MageVLModel
 
                 name_lower = target_name.lower()
-                if "minicpm" in name_lower or "openbmb" in name_lower:
+                if "mage" in name_lower:
+                    new_model = MageVLModel(name=target_name, model_path=target_name)
+                elif "minicpm" in name_lower or "openbmb" in name_lower:
                     new_model = MiniCPMVModel(name=target_name, model_path=target_name)
                 elif "yolo" in name_lower or target_name.endswith(".pt"):
                     new_model = YOLODetectorModel(name=target_name, weights_path=target_name)
