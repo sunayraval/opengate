@@ -29,17 +29,21 @@ class HuggingFaceVLM(BaseVisionModel):
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_path,
                 trust_remote_code=True,
-                torch_dtype=target_dtype,
-                device_map=self.device
+                torch_dtype=target_dtype
             )
         except ValueError:
             from transformers import AutoModelForVision2Seq
             self.model = AutoModelForVision2Seq.from_pretrained(
                 self.model_path,
                 trust_remote_code=True,
-                torch_dtype=target_dtype,
-                device_map=self.device
+                torch_dtype=target_dtype
             )
+
+        if self.device == "cuda" and torch.cuda.is_available():
+            self.model = self.model.to(device=self.device, dtype=target_dtype)
+        elif self.device != "cpu":
+            self.model = self.model.to(device=self.device)
+            
         self.model.eval()
         self.is_loaded = True
 
