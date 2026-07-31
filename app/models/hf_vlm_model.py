@@ -14,12 +14,22 @@ class HuggingFaceVLM(BaseVisionModel):
         self.model = None
 
     def load_model(self) -> None:
-        self.processor = AutoProcessor.from_pretrained(self.model_path)
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_path,
-            torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-            device_map=self.device
-        )
+        self.processor = AutoProcessor.from_pretrained(self.model_path, trust_remote_code=True)
+        try:
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_path,
+                trust_remote_code=True,
+                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                device_map=self.device
+            )
+        except ValueError:
+            from transformers import AutoModelForVision2Seq
+            self.model = AutoModelForVision2Seq.from_pretrained(
+                self.model_path,
+                trust_remote_code=True,
+                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                device_map=self.device
+            )
         self.model.eval()
         self.is_loaded = True
 
