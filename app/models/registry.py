@@ -151,13 +151,13 @@ class ModelRegistry:
 
     def initialize_defaults(self) -> None:
         """
-        Instantiate and register default completion model (microsoft/Mage-VL),
+        Instantiate and register default completion model (MiniCPM-V),
         and pre-load it into VRAM so the server is instantly warm on startup.
         """
-        from app.models.mage_model import MageVLModel
+        from app.models.hf_vlm_model import HuggingFaceVLM
 
         logger.info("Initializing default completion model...")
-        default_model = MageVLModel(name="microsoft/Mage-VL", model_path="microsoft/Mage-VL")
+        default_model = HuggingFaceVLM(name="openbmb/MiniCPM-V", model_path="openbmb/MiniCPM-V")
         self.register_model(default_model.model_name, default_model)
         self.default_completion_model = default_model.model_name
         
