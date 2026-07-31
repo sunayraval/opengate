@@ -150,13 +150,13 @@ class ModelRegistry:
 
     def initialize_defaults(self) -> None:
         """
-        Instantiate and register default completion model (MiniCPM-V),
+        Instantiate and register default completion model (microsoft/Phi-3.5-vision-instruct),
         and pre-load it into VRAM so the server is instantly warm on startup.
         """
         from app.models.hf_vlm_model import HuggingFaceVLM
 
         logger.info("Initializing default completion model...")
-        default_model = HuggingFaceVLM(name="openbmb/MiniCPM-V", model_path="openbmb/MiniCPM-V")
+        default_model = HuggingFaceVLM(name="microsoft/Phi-3.5-vision-instruct", model_path="microsoft/Phi-3.5-vision-instruct")
         self.register_model(default_model.model_name, default_model)
         self.default_completion_model = default_model.model_name
         
