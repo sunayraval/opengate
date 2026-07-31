@@ -67,7 +67,7 @@ class MageVLModel(BaseVisionModel):
         target_dtype = self._get_target_dtype()
         
         self.pipe = pipeline(
-            "image-text-to-text",
+            "image-to-text",
             model=self.model_path,
             trust_remote_code=True,
             device=self.device,
