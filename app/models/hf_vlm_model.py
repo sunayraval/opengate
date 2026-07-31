@@ -89,7 +89,25 @@ class HuggingFaceVLM(BaseVisionModel):
                         if block.get("type") == "image_url":
                             block["type"] = "image"
 
-        text_prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True)
+        try:
+            text_prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+        except ValueError:
+            # Fallback for models without a registered chat_template (like MiniCPM-V)
+            text_prompt = ""
+            for msg in messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                text_content = ""
+                if isinstance(content, list):
+                    for block in content:
+                        if block.get("type") == "text":
+                            text_content += block.get("text", "")
+                        elif block.get("type") == "image":
+                            text_content += "<image>\n"
+                else:
+                    text_content = str(content)
+                text_prompt += f"User: {text_content}\n" if role == "user" else f"Assistant: {text_content}\n"
+            text_prompt += "Assistant: "
         
         if image is not None:
             inputs = self.processor(text=[text_prompt], images=[image], return_tensors="pt")
