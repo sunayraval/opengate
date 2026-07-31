@@ -82,6 +82,12 @@ class HuggingFaceVLM(BaseVisionModel):
                 ]
         else:
             messages = msgs
+            # Normalize message schema for HuggingFace chat templates
+            for msg in messages:
+                if isinstance(msg.get("content"), list):
+                    for block in msg["content"]:
+                        if block.get("type") == "image_url":
+                            block["type"] = "image"
 
         text_prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True)
         
@@ -91,6 +97,7 @@ class HuggingFaceVLM(BaseVisionModel):
             inputs = self.processor(text=[text_prompt], return_tensors="pt")
             
         inputs = inputs.to(self.device)
+        input_len = inputs.input_ids.shape[1]
         
         with torch.no_grad():
             output_ids = self.model.generate(
@@ -100,7 +107,12 @@ class HuggingFaceVLM(BaseVisionModel):
                 do_sample=temperature > 0
             )
             
-        generated_ids = output_ids[0][len(inputs.input_ids[0]):]
+        out_tokens = output_ids[0]
+        if out_tokens.shape[0] >= input_len and torch.equal(out_tokens[:input_len], inputs.input_ids[0]):
+            generated_ids = out_tokens[input_len:]
+        else:
+            generated_ids = out_tokens
+
         res_str = self.processor.decode(generated_ids, skip_special_tokens=True)
 
         elapsed_ms = self.measure_time_ms(start_time)

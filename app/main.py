@@ -362,7 +362,7 @@ async def infer_completion(request: Request):
     if img_bytes:
         image = await loop.run_in_executor(None, decode_image, img_bytes)
 
-    target_model_name = model_name or "openbmb/MiniCPM-V"
+    target_model_name = model_name or "Qwen/Qwen2-VL-7B-Instruct"
     model = model_registry.get_model(target_model_name)
     if not model or not hasattr(model, "generate_completion"):
         # Fall back to default model in registry if requested model not found
