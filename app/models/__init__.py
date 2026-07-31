@@ -7,7 +7,7 @@ from app.models.base import BaseVisionModel
 from app.models.registry import ModelRegistry, model_registry
 from app.models.clip_model import OpenCLIPModel
 from app.models.detector_model import YOLODetectorModel
-from app.models.minicpm_model import MiniCPMVModel
+from app.models.hf_vlm_model import HuggingFaceVLM
 
 __all__ = [
     "BaseVisionModel",
@@ -15,5 +15,5 @@ __all__ = [
     "model_registry",
     "OpenCLIPModel",
     "YOLODetectorModel",
-    "MiniCPMVModel",
+    "HuggingFaceVLM",
 ]
