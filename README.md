@@ -4,6 +4,8 @@ OpenGate is a lightweight, local API provider for Vision-Language Models (VLMs) 
 
 It handles everything from routing and VRAM management to image decoding, making local AI inference as easy as calling a cloud provider.
 
+> **Note on Model Selection:** We have replaced custom, brittle models (microsoft/Mage-VL and Qwen/Qwen2-VL-7B-Instruct) with native, robust, state-of-the-art HuggingFace VLMs (Qwen/Qwen2-VL-7B-Instruct and microsoft/Phi-3.5-vision-instruct). This was done for long-term stability: native models don't require 	rust_remote_code=True, meaning they don't download unversioned python scripts from HuggingFace that break whenever the 	ransformers library updates.
+
 ---
 
 ## 📑 Table of Contents
@@ -72,7 +74,7 @@ import requests
 
 url = "http://127.0.0.1:8000/v1/chat/completions"
 payload = {
-    "model": "openbmb/MiniCPM-V",
+    "model": "Qwen/Qwen2-VL-7B-Instruct",
     "messages": [
         {"role": "user", "content": "What is the capital of France?"}
     ],
@@ -99,7 +101,7 @@ base64_image = encode_image("path/to/image.jpg")
 
 url = "http://127.0.0.1:8000/v1/chat/completions"
 payload = {
-    "model": "openbmb/MiniCPM-V",
+    "model": "Qwen/Qwen2-VL-7B-Instruct",
     "prompt": "Describe this image in detail.",
     "image_base64": base64_image,
     "max_tokens": 512
@@ -117,7 +119,7 @@ import requests
 
 url = "http://127.0.0.1:8000/v1/chat/completions"
 payload = {
-    "model": "openbmb/MiniCPM-V",
+    "model": "Qwen/Qwen2-VL-7B-Instruct",
     "prompt": "What color is the car in this picture?",
     "image_url": "https://example.com/path/to/car.jpg"
 }
@@ -137,7 +139,7 @@ files = {
     "file": ("image.jpg", open("path/to/image.jpg", "rb"), "image/jpeg")
 }
 data = {
-    "model": "openbmb/MiniCPM-V",
+    "model": "Qwen/Qwen2-VL-7B-Instruct",
     "prompt": "Read the text in this image."
 }
 
@@ -157,7 +159,7 @@ The response strictly follows the standard OpenAI API structure, making it drop-
   "id": "cmpl-1718049182300",
   "object": "chat.completion",
   "created": 1718049182,
-  "model": "openbmb/MiniCPM-V",
+  "model": "Qwen/Qwen2-VL-7B-Instruct",
   "choices": [
     {
       "index": 0,

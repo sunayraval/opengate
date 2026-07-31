@@ -2,13 +2,15 @@
 
 Welcome to the official API documentation for the **Real-Time AI CV Framework**. Our server provides high-performance, low-latency endpoints for Multimodal Vision-Language Question Answering (VQA), Zero-Shot Navigation, and Real-Time Object Detection.
 
+> **Note on Model Selection:** We have replaced custom, brittle models (microsoft/Mage-VL and Qwen/Qwen2-VL-7B-Instruct) with native, robust, state-of-the-art HuggingFace VLMs (Qwen/Qwen2-VL-7B-Instruct and microsoft/Phi-3.5-vision-instruct). This was done for long-term stability: native models don't require 	rust_remote_code=True, meaning they don't download unversioned python scripts from HuggingFace that break whenever the 	ransformers library updates.
+
 ---
 
 ## 🚀 Endpoint Overview
 
 | Endpoint | Method | Supported Inputs | Primary Use Case |
 | :--- | :--- | :--- | :--- |
-| `/api/v1/completions`<br>`/v1/chat/completions` | `POST` | JSON (Base64 / URL Link)<br>Multipart Form (File Upload) | Multimodal VQA, scene reasoning, and visual chat (e.g., `openbmb/MiniCPM-V`). |
+| `/api/v1/completions`<br>`/v1/chat/completions` | `POST` | JSON (Base64 / URL Link)<br>Multipart Form (File Upload) | Multimodal VQA, scene reasoning, and visual chat (e.g., `Qwen/Qwen2-VL-7B-Instruct`). |
 | `/api/v1/infer/action` | `POST` | JSON (Base64 / URL Link)<br>Multipart Form (File Upload) | Zero-shot decision making between candidate actions (e.g., OpenCLIP). |
 | `/api/v1/infer/detect` | `POST` | JSON (Base64 / URL Link)<br>Multipart Form (File Upload) | Bounding box object detection and tracking (e.g., YOLOv8). |
 | `/api/v1/models` | `GET` | None | Querying currently available and loaded GPU VRAM models. |
@@ -28,7 +30,7 @@ import requests
 
 url = "http://127.0.0.1:8000/api/v1/completions" # Or your TryCloudflare URL
 payload = {
-    "model": "openbmb/MiniCPM-V",
+    "model": "Qwen/Qwen2-VL-7B-Instruct",
     "prompt": "Identify any potential hazards or obstacles in this path.",
     "image_url": "https://images.unsplash.com/photo-1542282088-72c9c27ed0cd",
     "temperature": 0.5,
@@ -45,7 +47,7 @@ print("AI Completion:", data["choices"][0]["text"])
 curl -X POST "http://127.0.0.1:8000/api/v1/completions" \
      -H "Content-Type: application/json" \
      -d '{
-           "model": "openbmb/MiniCPM-V",
+           "model": "Qwen/Qwen2-VL-7B-Instruct",
            "prompt": "What objects are visible in this image?",
            "image_url": "https://images.unsplash.com/photo-1542282088-72c9c27ed0cd"
          }'
@@ -66,7 +68,7 @@ with open("camera_frame.jpg", "rb") as img_file:
     b64_str = base64.b64encode(img_file.read()).decode("utf-8")
 
 payload = {
-    "model": "openbmb/MiniCPM-V",
+    "model": "Qwen/Qwen2-VL-7B-Instruct",
     "prompt": "Describe the scene and suggest a safe navigation heading.",
     "image_base64": b64_str,
     "temperature": 0.7
@@ -80,7 +82,7 @@ print("AI Reasoning:", response.json()["choices"][0]["text"])
 You can also send requests using the standard OpenAI Multimodal Chat schema:
 ```python
 payload = {
-    "model": "openbmb/MiniCPM-V",
+    "model": "Qwen/Qwen2-VL-7B-Instruct",
     "messages": [
         {
             "role": "user",
@@ -107,7 +109,7 @@ with open("camera_frame.jpg", "rb") as f:
     files = {"file": ("frame.jpg", f, "image/jpeg")}
     data = {
         "prompt": "Are the traffic lights red or green?",
-        "model": "openbmb/MiniCPM-V",
+        "model": "Qwen/Qwen2-VL-7B-Instruct",
         "temperature": 0.2
     }
     response = requests.post("http://127.0.0.1:8000/api/v1/completions", files=files, data=data)
@@ -120,7 +122,7 @@ print("Result:", response.json()["choices"][0]["text"])
 curl -X POST "http://127.0.0.1:8000/api/v1/completions" \
      -F "file=@/path/to/camera_frame.jpg" \
      -F "prompt=Analyze this scene for autonomous navigation." \
-     -F "model=openbmb/MiniCPM-V"
+     -F "model=Qwen/Qwen2-VL-7B-Instruct"
 ```
 
 ---
@@ -131,7 +133,7 @@ You can also use the `/completions` endpoint without an image for pure LLM reaso
 response = requests.post(
     "http://127.0.0.1:8000/api/v1/completions",
     json={
-        "model": "openbmb/MiniCPM-V",
+        "model": "Qwen/Qwen2-VL-7B-Instruct",
         "prompt": "If a robot detects a sudden drop in terrain, what emergency action should it take?",
         "temperature": 0.3
     }
@@ -173,7 +175,7 @@ def inspect_scene(image_source: str, prompt: str) -> str:
     
     # 1. Handle HTTP/HTTPS Links
     if image_source.startswith("http://") or image_source.startswith("https://"):
-        payload = {"model": "openbmb/MiniCPM-V", "prompt": prompt, "image_url": image_source}
+        payload = {"model": "Qwen/Qwen2-VL-7B-Instruct", "prompt": prompt, "image_url": image_source}
         res = requests.post(endpoint, json=payload, timeout=10.0)
         return res.json().get("choices", [{}])[0].get("text", "Error inspecting scene.")
         
@@ -182,7 +184,7 @@ def inspect_scene(image_source: str, prompt: str) -> str:
         try:
             with open(image_source, "rb") as f:
                 files = {"file": ("frame.jpg", f, "image/jpeg")}
-                data = {"model": "openbmb/MiniCPM-V", "prompt": prompt}
+                data = {"model": "Qwen/Qwen2-VL-7B-Instruct", "prompt": prompt}
                 res = requests.post(endpoint, files=files, data=data, timeout=10.0)
                 return res.json().get("choices", [{}])[0].get("text", "Error inspecting file.")
         except Exception as e:
@@ -190,7 +192,7 @@ def inspect_scene(image_source: str, prompt: str) -> str:
             
     # 3. Handle Raw Base64
     else:
-        payload = {"model": "openbmb/MiniCPM-V", "prompt": prompt, "image_base64": image_source}
+        payload = {"model": "Qwen/Qwen2-VL-7B-Instruct", "prompt": prompt, "image_base64": image_source}
         res = requests.post(endpoint, json=payload, timeout=10.0)
         return res.json().get("choices", [{}])[0].get("text", "Error inspecting base64.")
 ```
@@ -216,10 +218,10 @@ def inspect_scene(image_source: str, prompt: str) -> str:
     """
     endpoint = f"{SERVER_URL}/api/v1/completions"
     if image_source.startswith("http://") or image_source.startswith("https://"):
-        res = requests.post(endpoint, json={"model": "openbmb/MiniCPM-V", "prompt": prompt, "image_url": image_source})
+        res = requests.post(endpoint, json={"model": "Qwen/Qwen2-VL-7B-Instruct", "prompt": prompt, "image_url": image_source})
         return res.json()["choices"][0]["text"]
     with open(image_source, "rb") as f:
-        res = requests.post(endpoint, files={"file": f}, data={"model": "openbmb/MiniCPM-V", "prompt": prompt})
+        res = requests.post(endpoint, files={"file": f}, data={"model": "Qwen/Qwen2-VL-7B-Instruct", "prompt": prompt})
         return res.json()["choices"][0]["text"]
 
 # 2. Define the CrewAI Agents
