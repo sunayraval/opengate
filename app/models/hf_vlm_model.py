@@ -14,12 +14,22 @@ class HuggingFaceVLM(BaseVisionModel):
         self.model = None
 
     def load_model(self) -> None:
-        self.processor = AutoProcessor.from_pretrained(self.model_path, trust_remote_code=True)
+        if hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported():
+            target_dtype = torch.bfloat16
+        else:
+            target_dtype = torch.float16 if self.device == "cuda" else torch.float32
+
+        try:
+            self.processor = AutoProcessor.from_pretrained(self.model_path, trust_remote_code=True)
+        except Exception:
+            from transformers import AutoTokenizer
+            self.processor = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
+
         try:
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_path,
                 trust_remote_code=True,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                torch_dtype=target_dtype,
                 device_map=self.device
             )
         except ValueError:
@@ -27,7 +37,7 @@ class HuggingFaceVLM(BaseVisionModel):
             self.model = AutoModelForVision2Seq.from_pretrained(
                 self.model_path,
                 trust_remote_code=True,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                torch_dtype=target_dtype,
                 device_map=self.device
             )
         self.model.eval()
@@ -118,12 +128,8 @@ class HuggingFaceVLM(BaseVisionModel):
                 chat_kwargs["context"] = None
                 
             import torch
-            with torch.no_grad():
-                if self.device == "cuda":
-                    with torch.autocast(device_type="cuda", dtype=self.model.dtype):
-                        res = self.model.chat(**chat_kwargs)
-                else:
-                    res = self.model.chat(**chat_kwargs)
+            with torch.inference_mode():
+                res = self.model.chat(**chat_kwargs)
                     
             res_str = res[0] if isinstance(res, tuple) else res
             prompt_tokens = 0
