@@ -109,10 +109,11 @@ class ModelRegistry:
                 from app.models.clip_model import OpenCLIPModel
                 from app.models.detector_model import YOLODetectorModel
                 from app.models.hf_vlm_model import HuggingFaceVLM
+                from app.models.mage_model import MageVLModel
 
                 name_lower = target_name.lower()
                 if "mage-vl" in name_lower:
-                    new_model = HuggingFaceVLM(name=target_name, model_path="microsoft/Phi-3.5-vision-instruct")
+                    new_model = MageVLModel(name=target_name, model_path="microsoft/Mage-VL")
                 elif "minicpm" in name_lower or "openbmb" in name_lower:
                     new_model = HuggingFaceVLM(name=target_name, model_path="openbmb/MiniCPM-V")
                 elif "yolo" in name_lower or target_name.endswith(".pt"):
@@ -150,13 +151,13 @@ class ModelRegistry:
 
     def initialize_defaults(self) -> None:
         """
-        Instantiate and register default completion model (microsoft/Phi-3.5-vision-instruct),
+        Instantiate and register default completion model (microsoft/Mage-VL),
         and pre-load it into VRAM so the server is instantly warm on startup.
         """
-        from app.models.hf_vlm_model import HuggingFaceVLM
+        from app.models.mage_model import MageVLModel
 
         logger.info("Initializing default completion model...")
-        default_model = HuggingFaceVLM(name="microsoft/Phi-3.5-vision-instruct", model_path="microsoft/Phi-3.5-vision-instruct")
+        default_model = MageVLModel(name="microsoft/Mage-VL", model_path="microsoft/Mage-VL")
         self.register_model(default_model.model_name, default_model)
         self.default_completion_model = default_model.model_name
         
