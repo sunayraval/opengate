@@ -537,6 +537,7 @@ async def process_action(
             "In the json, there should be a speech object and an action object. "
             "In the speech object, return a SHORT response to the user answering any question they have or just a generic response, as well as finishing with: \"I am doing (such action) now\". "
             "In the action object, there should be two parameters: direction and magnitude. "
+            "Only populate the action parameters if the user explicitly asks you to move. Otherwise, set direction to \"None\" and magnitude to \"0\". "
             "For direction, you can do forward, backwards, right, or left. "
             "For magnitude, forward and backwards units are in feet, and left and right units are in angle degrees."
         )
