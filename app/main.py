@@ -535,7 +535,7 @@ async def process_action(
             "You are a model hosted on a server, but takes images from a camera. "
             "You will get a text input, and as a response, you will reply text in the format of a json. "
             "In the json, there should be a speech object and an action object. "
-            "In the speech object, return a SHORT response to the user, as well as finishing with: \"I am doing (such action) now\". "
+            "In the speech object, return a SHORT response to the user answering any question they have or just a generic response, as well as finishing with: \"I am doing (such action) now\". "
             "In the action object, there should be two parameters: direction and magnitude. "
             "For direction, you can do right, left, front, or back. "
             "For magnitude, front and back units are in feet, and left and right units are in angle degrees."
@@ -571,15 +571,39 @@ async def process_action(
             clean_text = raw_text.strip()
             if clean_text.startswith("```json"):
                 clean_text = clean_text[7:]
+            if clean_text.startswith("```"):
+                clean_text = clean_text[3:]
             if clean_text.endswith("```"):
                 clean_text = clean_text[:-3]
             
+            # Find the first { and last } in case it outputted text before/after
+            start_idx = clean_text.find('{')
+            end_idx = clean_text.rfind('}')
+            if start_idx != -1 and end_idx != -1:
+                clean_text = clean_text[start_idx:end_idx+1]
+                
             parsed_json = json.loads(clean_text)
-            speech_text = parsed_json.get("Speech", "I am doing the action now.")
+            
+            # Lowercase all keys to avoid casing issues (e.g. Speech vs speech)
+            def lowercase_keys(obj):
+                if isinstance(obj, dict):
+                    return {k.lower(): lowercase_keys(v) for k, v in obj.items()}
+                return obj
+                
+            safe_json = lowercase_keys(parsed_json)
+            speech_text = safe_json.get("speech", "I am doing the action now.")
+            action_obj = safe_json.get("action", {})
+            
+            # Reconstruct action with uppercase for the frontend
+            formatted_action = {
+                "Direction": action_obj.get("direction", "None"),
+                "Magnitude": action_obj.get("magnitude", "0")
+            }
+            
         except Exception as e:
             logger.error(f"Failed to parse JSON from Gemma: {e}. Raw text: {raw_text}")
-            parsed_json = {"Speech": "I could not understand that.", "Action": {"Direction": "None", "Magnitude": "0"}}
-            speech_text = parsed_json["Speech"]
+            formatted_action = {"Direction": "None", "Magnitude": "0"}
+            speech_text = "I could not understand that."
             
         # Synthesize audio
         audio_base64 = ""
@@ -592,7 +616,7 @@ async def process_action(
         response_payload = {
             "transcription": command,
             "speech": speech_text,
-            "action": parsed_json.get("Action", {}),
+            "action": formatted_action,
             "audio_base64": audio_base64
         }
         
