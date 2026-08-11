@@ -453,6 +453,13 @@ async def transcribe_audio(audio_file: UploadFile = File(...)):
     Saves to temp file, transcribes via NeMo, and returns text.
     """
     if not asr_model or not asr_model.is_loaded:
+        raise HTTPException(status_code=500, detail="ASR Model is not loaded or unavailable.")
+    
+    try:
+        import imageio_ffmpeg
+        import subprocess
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:
         raise HTTPException(status_code=500, detail="imageio_ffmpeg not installed.")
         
     try:
