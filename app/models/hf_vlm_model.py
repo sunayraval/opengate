@@ -17,7 +17,9 @@ class HuggingFaceVLM(BaseVisionModel):
         if hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported():
             target_dtype = torch.bfloat16
         else:
-            target_dtype = torch.float16 if self.device == "cuda" else torch.float32
+            # Modern VLMs (Gemma, Qwen) easily overflow in float16, causing device-side asserts.
+            # If bfloat16 is not supported by the GPU, use float32 for computation.
+            target_dtype = torch.float32
 
         # Check if bitsandbytes is installed to prevent VRAM spillover on 12GB cards
         try:
@@ -195,8 +197,8 @@ class HuggingFaceVLM(BaseVisionModel):
             else:
                 inputs = self.processor(text=[text_prompt], return_tensors="pt")
                 
-            # Cast inputs correctly (use float16/bfloat16, NEVER uint8/4-bit from weights)
-            compute_dtype = torch.bfloat16 if (hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported()) else torch.float16
+            # Cast inputs correctly (use float32/bfloat16, NEVER float16 to avoid NaN overflows)
+            compute_dtype = torch.bfloat16 if (hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported()) else torch.float32
             inputs = {k: v.to(self.device, dtype=compute_dtype) if torch.is_floating_point(v) else v.to(self.device) for k, v in inputs.items()}
 
             input_len = inputs["input_ids"].shape[1]
