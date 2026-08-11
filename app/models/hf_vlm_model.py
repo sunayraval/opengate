@@ -223,6 +223,17 @@ class HuggingFaceVLM(BaseVisionModel):
             total_tokens = prompt_tokens + completion_tokens
 
         elapsed_ms = self.measure_time_ms(start_time)
+        
+        # Aggressive memory cleanup to prevent OOM/CUDA device-side asserts over time
+        import gc
+        if 'inputs' in locals():
+            del inputs
+        if 'output_ids' in locals():
+            del output_ids
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            
         return {
             "id": f"cmpl-{int(time.time()*1000)}",
             "object": "chat.completion",
