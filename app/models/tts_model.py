@@ -18,7 +18,7 @@ class KokoroTTSModel:
         logger.info("Initializing Kokoro TTS Pipeline...")
         try:
             from kokoro import KPipeline
-            self.pipeline = KPipeline(lang_code=self.lang_code, device='cpu')
+            self.pipeline = KPipeline(lang_code=self.lang_code)
             self.is_loaded = True
             logger.info("Kokoro TTS initialized successfully.")
         except Exception as e:
