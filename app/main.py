@@ -443,16 +443,16 @@ async def infer_completion(request: Request):
     return CompletionResponse(**result)
 
 
+import threading
+gpu_lock = threading.Lock()
+
 @app.post("/api/v1/communicate/transcribe", tags=["Communicate"])
 async def transcribe_audio(audio_file: UploadFile = File(...)):
+    """
+    Called by the Dashboard when user records voice.
+    Saves to temp file, transcribes via NeMo, and returns text.
+    """
     if not asr_model or not asr_model.is_loaded:
-        raise HTTPException(status_code=500, detail="ASR Model is not loaded or unavailable.")
-    
-    try:
-        import imageio_ffmpeg
-        import subprocess
-        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-    except ImportError:
         raise HTTPException(status_code=500, detail="imageio_ffmpeg not installed.")
         
     try:
@@ -476,8 +476,12 @@ async def transcribe_audio(audio_file: UploadFile = File(...)):
             logger.error(f"FFmpeg conversion failed. STDERR: {e.stderr}")
             raise HTTPException(status_code=500, detail=f"Audio conversion failed: {e.stderr}")
         
-        # Transcribe using NeMo
-        transcription = asr_model.transcribe(tmp_out_path)
+        # Transcribe using NeMo with a GPU lock to prevent crashing the VLM
+        def run_asr():
+            with gpu_lock:
+                return asr_model.transcribe(tmp_out_path)
+                
+        transcription = await loop.run_in_executor(None, run_asr)
         
         if not transcription:
             logger.warning("Transcription completed successfully but returned an empty string (likely silence).")
@@ -553,16 +557,17 @@ async def process_action(
             }
         ]
         
-        # Call VLM
-        result = await loop.run_in_executor(
-            None,
-            lambda: model.generate_completion(
-                image=image,
-                temperature=0.7,
-                max_tokens=512,
-                msgs=messages
-            )
-        )
+        # Call VLM with a GPU lock to prevent crashing the ASR
+        def run_vlm():
+            with gpu_lock:
+                return model.generate_completion(
+                    image=image,
+                    temperature=0.7,
+                    max_tokens=512,
+                    msgs=messages
+                )
+                
+        result = await loop.run_in_executor(None, run_vlm)
         
         raw_text = result["choices"][0]["message"]["content"]
         
