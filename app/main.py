@@ -488,6 +488,7 @@ async def transcribe_audio(audio_file: UploadFile = File(...)):
             with gpu_lock:
                 return asr_model.transcribe(tmp_out_path)
                 
+        loop = asyncio.get_running_loop()
         transcription = await loop.run_in_executor(None, run_asr)
         
         if not transcription:
