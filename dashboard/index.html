@@ -11,8 +11,9 @@
     <div class="dashboard-container">
         <!-- Header Section -->
         <header class="glass-panel">
-            <div class="logo-area">
+            <div class="logo-area" style="display: flex; align-items: center; gap: 1rem;">
                 <h1>Server Dashboard</h1>
+                <span id="ip-address" class="btn small" style="background: #e0f2fe; color: #0284c7; border: none; font-weight: 600;">IP: Loading...</span>
             </div>
             <div class="controls-area">
                 <div class="status-indicator" id="status-indicator">
@@ -25,6 +26,16 @@
                 </div>
             </div>
         </header>
+
+        <!-- Model Management Section -->
+        <section class="glass-panel" style="padding: 1rem 1.5rem; display: flex; align-items: center; gap: 1rem;">
+            <h2 style="font-size: 1rem; margin-right: auto;">Model Management</h2>
+            <select id="model-select" class="btn small" style="background: white; padding: 0.5rem; font-size: 0.9rem;">
+                <option value="google/gemma-3-4b-it">google/gemma-3-4b-it</option>
+            </select>
+            <button id="btn-load-model" class="btn primary">Load to VRAM</button>
+            <button id="btn-unload-model" class="btn danger">Unload from VRAM</button>
+        </section>
 
         <!-- Main Content Area -->
         <main class="main-grid">

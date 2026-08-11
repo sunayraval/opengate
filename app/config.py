@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     USE_FP16: bool = True
 
     # AI Model Defaults
-    DEFAULT_COMPLETION_MODEL: str = "openbmb/MiniCPM-V"
+    DEFAULT_COMPLETION_MODEL: str = "google/gemma-3-4b-it"
     WEIGHTS_DIR: str = "./weights"
 
     # Pydantic Settings configuration

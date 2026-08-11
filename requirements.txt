@@ -7,7 +7,7 @@ aiohttp>=3.9.0
 requests>=2.31.0
 torch>=2.1.0
 torchvision>=0.16.0
-transformers==4.40.2
+transformers>=4.49.0
 open_clip_torch>=2.24.0
 ultralytics>=8.1.0
 huggingface-hub>=0.20.0

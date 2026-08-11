@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import threading
+import socket
 from pathlib import Path
 
 import uvicorn
@@ -29,6 +30,18 @@ loop = None
 
 # Ensure dashboard dir exists
 dashboard_dir.mkdir(parents=True, exist_ok=True)
+
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # Connect to an external IP to route through the default interface
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = "127.0.0.1"
+    finally:
+        s.close()
+    return ip
 
 # Mount static files for css/js
 app.mount("/static", StaticFiles(directory=str(dashboard_dir)), name="static")
@@ -100,7 +113,7 @@ async def stop_server():
 async def get_status():
     global server_process
     is_running = server_process is not None and server_process.poll() is None
-    return JSONResponse({"running": is_running})
+    return JSONResponse({"running": is_running, "local_ip": get_local_ip()})
 
 @app.websocket("/ws/logs")
 async def websocket_logs(websocket: WebSocket):

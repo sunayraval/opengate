@@ -7,6 +7,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnClearLogs = document.getElementById('btn-clear-logs');
     const callsList = document.getElementById('calls-list');
     const callCount = document.getElementById('call-count');
+    
+    // New Elements
+    const ipAddress = document.getElementById('ip-address');
+    const btnLoadModel = document.getElementById('btn-load-model');
+    const btnUnloadModel = document.getElementById('btn-unload-model');
+    const modelSelect = document.getElementById('model-select');
 
     let isRunning = false;
     let ws = null;
@@ -22,11 +28,49 @@ document.addEventListener('DOMContentLoaded', () => {
     btnClearLogs.addEventListener('click', () => {
         terminal.innerHTML = '';
     });
+    
+    // Model Management Listeners
+    btnLoadModel.addEventListener('click', async () => {
+        btnLoadModel.disabled = true;
+        try {
+            const aiServerUrl = `http://${window.location.hostname}:8000/api/v1/models/load`;
+            const res = await fetch(aiServerUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model_name: modelSelect.value })
+            });
+            const data = await res.json();
+            appendLog(`[Model] Load response: ${JSON.stringify(data)}`, 'log-info');
+        } catch (err) {
+            appendLog(`[Model] Load failed: ${err.message}`, 'log-error');
+        }
+        btnLoadModel.disabled = false;
+    });
+
+    btnUnloadModel.addEventListener('click', async () => {
+        btnUnloadModel.disabled = true;
+        try {
+            const aiServerUrl = `http://${window.location.hostname}:8000/api/v1/models/unload`;
+            const res = await fetch(aiServerUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model_name: modelSelect.value })
+            });
+            const data = await res.json();
+            appendLog(`[Model] Unload response: ${JSON.stringify(data)}`, 'log-info');
+        } catch (err) {
+            appendLog(`[Model] Unload failed: ${err.message}`, 'log-error');
+        }
+        btnUnloadModel.disabled = false;
+    });
 
     async function checkStatus() {
         try {
             const res = await fetch('/api/status');
             const data = await res.json();
+            if (data.local_ip) {
+                ipAddress.textContent = `IP: ${data.local_ip}`;
+            }
             updateUI(data.running);
         } catch (err) {
             console.error("Failed to check status", err);
@@ -69,11 +113,15 @@ document.addEventListener('DOMContentLoaded', () => {
             pulseDot.className = "pulse-dot running";
             btnStart.disabled = true;
             btnStop.disabled = false;
+            btnLoadModel.disabled = false;
+            btnUnloadModel.disabled = false;
         } else {
             statusText.textContent = "Server is Offline";
             pulseDot.className = "pulse-dot stopped";
             btnStart.disabled = false;
             btnStop.disabled = true;
+            btnLoadModel.disabled = true;
+            btnUnloadModel.disabled = true;
         }
     }
 

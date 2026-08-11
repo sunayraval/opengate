@@ -22,6 +22,13 @@ class ModelInfo(BaseModel):
     device: str = Field(default="cpu", description="Device where model is loaded ('cuda' or 'cpu').")
 
 
+class ModelControlRequest(BaseModel):
+    """
+    Schema for load/unload model control requests.
+    """
+    model_name: str = Field(..., description="Name of the model to load or unload.")
+
+
 class CompletionMessage(BaseModel):
     """
     Message schema for OpenAI-compatible chat completion requests.

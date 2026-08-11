@@ -18,6 +18,7 @@ from app.config import config
 from app.schemas import (
     HealthResponse,
     ModelInfo,
+    ModelControlRequest,
     CompletionRequest,
     CompletionResponse,
     CompletionChoice,
@@ -260,6 +261,31 @@ async def list_models():
     return models
 
 
+@app.post("/api/v1/models/load", tags=["Models"])
+async def api_load_model(req: ModelControlRequest):
+    """
+    Manually load a registered model into VRAM.
+    """
+    try:
+        model_registry.load_model(req.model_name)
+        return {"status": "success", "message": f"Successfully loaded {req.model_name} into VRAM."}
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Model '{req.model_name}' not found in registry.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/models/unload", tags=["Models"])
+async def api_unload_model(req: ModelControlRequest):
+    """
+    Manually unload a registered model from VRAM to free GPU memory.
+    """
+    try:
+        model_registry.unload_model(req.model_name)
+        return {"status": "success", "message": f"Successfully unloaded {req.model_name} from VRAM."}
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Model '{req.model_name}' not found in registry.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/v1/completions", response_model=CompletionResponse, tags=["Completions"])

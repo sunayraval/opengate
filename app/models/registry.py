@@ -116,6 +116,8 @@ class ModelRegistry:
                     new_model = MageVLModel(name=target_name, model_path="microsoft/Mage-VL")
                 elif "minicpm" in name_lower or "openbmb" in name_lower:
                     new_model = HuggingFaceVLM(name=target_name, model_path="openbmb/MiniCPM-V")
+                elif "gemma" in name_lower:
+                    new_model = HuggingFaceVLM(name=target_name, model_path=target_name)
                 elif "yolo" in name_lower or target_name.endswith(".pt"):
                     new_model = YOLODetectorModel(name=target_name, weights_path=target_name)
                 else:
@@ -156,8 +158,10 @@ class ModelRegistry:
         """
         from app.models.hf_vlm_model import HuggingFaceVLM
 
-        logger.info("Initializing default completion model...")
-        default_model = HuggingFaceVLM(name="openbmb/MiniCPM-V", model_path="openbmb/MiniCPM-V")
+        from app.config import config
+        
+        logger.info(f"Initializing default completion model ({config.DEFAULT_COMPLETION_MODEL})...")
+        default_model = HuggingFaceVLM(name=config.DEFAULT_COMPLETION_MODEL, model_path=config.DEFAULT_COMPLETION_MODEL)
         self.register_model(default_model.model_name, default_model)
         self.default_completion_model = default_model.model_name
         

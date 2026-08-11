@@ -32,12 +32,20 @@ class HuggingFaceVLM(BaseVisionModel):
                 torch_dtype=target_dtype
             )
         except ValueError:
-            from transformers import AutoModelForVision2Seq
-            self.model = AutoModelForVision2Seq.from_pretrained(
-                self.model_path,
-                trust_remote_code=True,
-                torch_dtype=target_dtype
-            )
+            try:
+                from transformers import AutoModelForImageTextToText
+                self.model = AutoModelForImageTextToText.from_pretrained(
+                    self.model_path,
+                    trust_remote_code=True,
+                    torch_dtype=target_dtype
+                )
+            except (ValueError, ImportError):
+                from transformers import AutoModelForVision2Seq
+                self.model = AutoModelForVision2Seq.from_pretrained(
+                    self.model_path,
+                    trust_remote_code=True,
+                    torch_dtype=target_dtype
+                )
 
         if self.device == "cuda" and torch.cuda.is_available():
             self.model = self.model.to(device=self.device, dtype=target_dtype)
