@@ -252,3 +252,127 @@ h1 {
     font-size: 0.7rem;
     color: var(--text-secondary);
 }
+
+/* Chat UI */
+.nav-tabs {
+    margin-top: 1rem;
+}
+.nav-tabs .nav-btn {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+.nav-tabs .nav-btn:hover {
+    background: #f8fafc;
+}
+.nav-tabs .nav-btn.active {
+    background: #eff6ff;
+    color: var(--color-primary);
+    border-color: #bfdbfe;
+    font-weight: 600;
+}
+
+#communicate {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.chat-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.chat-messages {
+    flex-grow: 1;
+    padding: 1.5rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    background: #fafafa;
+}
+
+.message {
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    max-width: 80%;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.user-msg {
+    align-self: flex-end;
+    background: var(--color-primary);
+    color: white;
+}
+
+.system-msg {
+    align-self: center;
+    background: #e4e4e7;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+}
+
+.chat-input-area {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: #ffffff;
+    border-top: 1px solid var(--border-color);
+}
+
+.chat-input-area input {
+    flex-grow: 1;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-family: var(--font-main);
+    font-size: 0.95rem;
+    outline: none;
+}
+
+.chat-input-area input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.mic-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    border: none;
+    background: #e4e4e7;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1.2rem;
+}
+
+.mic-btn:hover {
+    background: #d4d4d8;
+}
+
+.mic-btn.recording {
+    background: var(--color-danger);
+    color: white;
+    animation: pulse-red 1.5s infinite;
+}
+
+@keyframes pulse-red {
+    0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}

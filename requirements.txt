@@ -18,3 +18,11 @@ accelerate>=0.26.0
 pillow>=10.2.0
 opencv-python-headless>=4.9.0.80
 numpy>=1.26.0
+
+# Audio & Speech-to-Text
+nemo_toolkit[asr]
+pydub
+imageio-ffmpeg
+librosa
+kokoro>=0.9.4
+soundfile

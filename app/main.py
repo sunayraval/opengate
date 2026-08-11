@@ -13,8 +13,25 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, Web
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from PIL import Image
+import tempfile
+import os
 
 from app.config import config
+try:
+    from app.models.asr_model import NeMoASRModel
+    asr_model = NeMoASRModel("nvidia/parakeet-tdt-0.6b-v2")
+except ImportError:
+    asr_model = None
+
+try:
+    from app.models.tts_model import KokoroTTSModel
+    tts_model = KokoroTTSModel()
+except ImportError:
+    tts_model = None
+
+# Global queues for Dashboard-Pi interaction
+pending_commands = []
+pending_responses = []
 from app.schemas import (
     HealthResponse,
     ModelInfo,
@@ -167,6 +184,20 @@ async def lifespan(app: FastAPI):
         logger.info("AI Model Registry initialized successfully.")
     except Exception as e:
         logger.error(f"Error initializing model registry: {e}")
+
+    # 3. Initialize ASR Model
+    if asr_model:
+        try:
+            asr_model.load()
+        except Exception as e:
+            logger.error(f"Failed to load ASR model during startup: {e}")
+            
+    # 4. Initialize TTS Model
+    if tts_model:
+        try:
+            tts_model.load()
+        except Exception as e:
+            logger.error(f"Failed to load TTS model during startup: {e}")
 
     yield
 
@@ -411,6 +442,156 @@ async def infer_completion(request: Request):
     result["inference_time_ms"] = round(elapsed_ms, 2)
     return CompletionResponse(**result)
 
+
+@app.post("/api/v1/communicate/transcribe", tags=["Communicate"])
+async def transcribe_audio(audio_file: UploadFile = File(...)):
+    if not asr_model or not asr_model.is_loaded:
+        raise HTTPException(status_code=500, detail="ASR Model is not loaded or unavailable.")
+    
+    try:
+        import imageio_ffmpeg
+        import subprocess
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:
+        raise HTTPException(status_code=500, detail="imageio_ffmpeg not installed.")
+        
+    try:
+        # Save the uploaded webm/ogg file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp_in:
+            content = await audio_file.read()
+            tmp_in.write(content)
+            tmp_in_path = tmp_in.name
+            
+        # Convert to 16kHz mono WAV using raw ffmpeg executable
+        tmp_out_path = tmp_in_path + ".wav"
+        
+        try:
+            subprocess.run(
+                [ffmpeg_exe, "-y", "-i", tmp_in_path, "-ar", "16000", "-ac", "1", tmp_out_path],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+        except subprocess.CalledProcessError as e:
+            logger.error(f"FFmpeg conversion failed. STDERR: {e.stderr}")
+            raise HTTPException(status_code=500, detail=f"Audio conversion failed: {e.stderr}")
+        
+        # Transcribe using NeMo
+        transcription = asr_model.transcribe(tmp_out_path)
+        
+        if not transcription:
+            logger.warning("Transcription completed successfully but returned an empty string (likely silence).")
+        else:
+            logger.info(f"Transcription successful: {transcription}")
+            pending_commands.append(transcription)
+        
+        # Cleanup
+        if os.path.exists(tmp_in_path):
+            os.remove(tmp_in_path)
+        if os.path.exists(tmp_out_path):
+            os.remove(tmp_out_path)
+        
+        return {"transcription": transcription}
+    except Exception as e:
+        logger.error(f"Transcription failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/commands/pop", tags=["Communicate"])
+async def pop_command():
+    if pending_commands:
+        return {"command": pending_commands.pop(0)}
+    return {"command": None}
+
+@app.get("/api/v1/responses/pop", tags=["Communicate"])
+async def pop_response():
+    if pending_responses:
+        return pending_responses.pop(0)
+    return {"response": None}
+
+import json
+
+@app.post("/api/v1/communicate/action", tags=["Communicate"])
+async def process_action(
+    command: str = Form(...),
+    image_file: UploadFile = File(...)
+):
+    """
+    Called by the Pi script. It sends the image and the text command.
+    Generates a structured JSON response using Gemma, then generates TTS audio using Kokoro.
+    Pushes the response to the pending_responses queue for the Dashboard to read.
+    """
+    try:
+        # Load image
+        img_bytes = await image_file.read()
+        loop = asyncio.get_running_loop()
+        image = await loop.run_in_executor(None, decode_image, img_bytes)
+        
+        # Get Gemma model
+        model = model_registry.get_model()
+        if not model:
+            raise HTTPException(status_code=500, detail="VLM Model not found.")
+            
+        system_prompt = (
+            "You are a model hosted on a server, but takes images from a camera. "
+            "You will get a text input, and as a response, you will reply text in the format of a json. "
+            "In the json, there should be a speech object and an action object. "
+            "In the speech object, return a SHORT response to the user, as well as finishing with: \"I am doing (such action) now\". "
+            "In the action object, there should be two parameters: direction and magnitude. "
+            "For direction, you can do right, left, front, or back. "
+            "For magnitude, front and back units are in feet, and left and right units are in angle degrees."
+        )
+        
+        # Call VLM
+        result = await loop.run_in_executor(
+            None,
+            lambda: model.generate_completion(
+                image=image,
+                prompt=command,
+                temperature=0.7,
+                max_tokens=512,
+                msgs=[{"role": "system", "content": system_prompt}]
+            )
+        )
+        
+        raw_text = result["choices"][0]["message"]["content"]
+        
+        # Parse JSON
+        try:
+            # Strip markdown formatting if any
+            clean_text = raw_text.strip()
+            if clean_text.startswith("```json"):
+                clean_text = clean_text[7:]
+            if clean_text.endswith("```"):
+                clean_text = clean_text[:-3]
+            
+            parsed_json = json.loads(clean_text)
+            speech_text = parsed_json.get("Speech", "I am doing the action now.")
+        except Exception as e:
+            logger.error(f"Failed to parse JSON from Gemma: {e}. Raw text: {raw_text}")
+            parsed_json = {"Speech": "I could not understand that.", "Action": {"Direction": "None", "Magnitude": "0"}}
+            speech_text = parsed_json["Speech"]
+            
+        # Synthesize audio
+        audio_base64 = ""
+        if tts_model and tts_model.is_loaded:
+            try:
+                audio_base64 = await loop.run_in_executor(None, tts_model.synthesize_base64, speech_text)
+            except Exception as e:
+                logger.error(f"TTS failed: {e}")
+                
+        response_payload = {
+            "transcription": command,
+            "speech": speech_text,
+            "action": parsed_json.get("Action", {}),
+            "audio_base64": audio_base64
+        }
+        
+        pending_responses.append(response_payload)
+        return {"status": "success"}
+        
+    except Exception as e:
+        logger.error(f"Action processing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

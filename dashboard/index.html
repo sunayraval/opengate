@@ -37,11 +37,41 @@
             <button id="btn-unload-model" class="btn danger">Unload from VRAM</button>
         </section>
 
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs" style="display: flex; gap: 1rem; padding: 0 1.5rem; margin-bottom: 1rem;">
+            <button class="nav-btn active" data-target="dashboard" style="padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;">Runner Dashboard</button>
+            <button class="nav-btn" data-target="communicate" style="padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;">Communicate</button>
+        </nav>
         <!-- Main Content Area -->
         <main class="main-grid">
             
+            <!-- Settings Panel -->
+            <div id="settings" class="panel" style="display: none;">
+                <h2 class="panel-title">Server Configuration</h2>
+                <div class="card">
+                    <p>Configuration settings will be placed here.</p>
+                </div>
+            </div>
+
+            <!-- Communicate Panel -->
+            <div id="communicate" class="panel" style="display: none;">
+                <h2 class="panel-title">Chat with Robot</h2>
+                <div class="chat-card card">
+                    <div id="chat-messages" class="chat-messages">
+                        <!-- Chat messages will appear here -->
+                        <div class="message system-msg">Hold Spacebar or click the microphone to speak!</div>
+                    </div>
+                    
+                    <div class="chat-input-area">
+                        <button id="btn-mic" class="mic-btn" title="Hold to talk (Spacebar)"><i class="fas fa-microphone"></i></button>
+                        <input type="text" id="chat-text-input" placeholder="Type a message or speak..." autocomplete="off">
+                        <button id="btn-send-text" class="btn primary-btn"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Logs Terminal -->
-            <section class="glass-panel logs-section">
+            <section class="glass-panel logs-section" id="dashboard">
                 <div class="panel-header">
                     <h2>Terminal Logs</h2>
                     <button id="btn-clear-logs" class="btn small">Clear</button>
@@ -65,6 +95,6 @@
         </main>
     </div>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=4"></script>
 </body>
 </html>
