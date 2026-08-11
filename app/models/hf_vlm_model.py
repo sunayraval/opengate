@@ -19,6 +19,22 @@ class HuggingFaceVLM(BaseVisionModel):
         else:
             target_dtype = torch.float16 if self.device == "cuda" else torch.float32
 
+        # Check if bitsandbytes is installed to prevent VRAM spillover on 12GB cards
+        try:
+            import bitsandbytes
+            from transformers import BitsAndBytesConfig
+            # Use 4-bit quantization to drastically reduce memory usage (4GB instead of 8GB)
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=target_dtype,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4"
+            )
+            print(f"✅ bitsandbytes found! Loading {self.model_name} in 4-bit precision for maximum speed on 12GB GPUs.")
+        except ImportError:
+            quantization_config = None
+            print(f"⚠️ bitsandbytes not found. Loading in full {target_dtype}. Warning: May spill to System RAM and run slow if VRAM is full.")
+
         try:
             self.processor = AutoProcessor.from_pretrained(self.model_path, trust_remote_code=True)
         except Exception:
@@ -29,7 +45,9 @@ class HuggingFaceVLM(BaseVisionModel):
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_path,
                 trust_remote_code=True,
-                torch_dtype=target_dtype
+                torch_dtype=target_dtype,
+                quantization_config=quantization_config,
+                device_map="cuda" if quantization_config else None
             )
         except ValueError:
             try:
@@ -37,20 +55,25 @@ class HuggingFaceVLM(BaseVisionModel):
                 self.model = AutoModelForImageTextToText.from_pretrained(
                     self.model_path,
                     trust_remote_code=True,
-                    torch_dtype=target_dtype
+                    torch_dtype=target_dtype,
+                    quantization_config=quantization_config,
+                    device_map="cuda" if quantization_config else None
                 )
             except (ValueError, ImportError):
                 from transformers import AutoModelForVision2Seq
                 self.model = AutoModelForVision2Seq.from_pretrained(
                     self.model_path,
                     trust_remote_code=True,
-                    torch_dtype=target_dtype
+                    torch_dtype=target_dtype,
+                    quantization_config=quantization_config,
+                    device_map="cuda" if quantization_config else None
                 )
 
-        if self.device == "cuda" and torch.cuda.is_available():
-            self.model = self.model.to(device=self.device, dtype=target_dtype)
-        elif self.device != "cpu":
-            self.model = self.model.to(device=self.device)
+        if not quantization_config:
+            if self.device == "cuda" and torch.cuda.is_available():
+                self.model = self.model.to(device=self.device, dtype=target_dtype)
+            elif self.device != "cpu":
+                self.model = self.model.to(device=self.device)
             
         self.model.eval()
         self.is_loaded = True
@@ -139,7 +162,6 @@ class HuggingFaceVLM(BaseVisionModel):
             if "context" in chat_sig.parameters:
                 chat_kwargs["context"] = None
                 
-            import torch
             with torch.inference_mode():
                 res = self.model.chat(**chat_kwargs)
                     
@@ -173,8 +195,11 @@ class HuggingFaceVLM(BaseVisionModel):
             else:
                 inputs = self.processor(text=[text_prompt], return_tensors="pt")
                 
-            inputs = inputs.to(self.device)
-            input_len = inputs.input_ids.shape[1]
+            # Cast inputs correctly (use float16/bfloat16, NEVER uint8/4-bit from weights)
+            compute_dtype = torch.bfloat16 if (hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported()) else torch.float16
+            inputs = {k: v.to(self.device, dtype=compute_dtype) if torch.is_floating_point(v) else v.to(self.device) for k, v in inputs.items()}
+
+            input_len = inputs["input_ids"].shape[1]
             
             with torch.no_grad():
                 output_ids = self.model.generate(
@@ -185,13 +210,13 @@ class HuggingFaceVLM(BaseVisionModel):
                 )
                 
             out_tokens = output_ids[0]
-            if out_tokens.shape[0] >= input_len and torch.equal(out_tokens[:input_len], inputs.input_ids[0]):
+            if out_tokens.shape[0] >= input_len and torch.equal(out_tokens[:input_len], inputs["input_ids"][0]):
                 generated_ids = out_tokens[input_len:]
             else:
                 generated_ids = out_tokens
     
             res_str = self.processor.decode(generated_ids, skip_special_tokens=True)
-            prompt_tokens = len(inputs.input_ids[0])
+            prompt_tokens = len(inputs["input_ids"][0])
             completion_tokens = len(generated_ids)
             total_tokens = prompt_tokens + completion_tokens
 

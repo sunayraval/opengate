@@ -11,10 +11,11 @@ def take_picture():
     print("📷 Taking picture with Raspberry Pi Camera...")
     
     # Try modern Raspberry Pi camera commands (Bookworm / Bullseye / Buster)
+    # Using 320x240 resolution for ultra-fast AI processing (sub-second latency)
     camera_cmds = [
-        ["rpicam-jpeg", "-o", IMAGE_PATH, "--width", "640", "--height", "480", "-q", "80", "-t", "500", "--nopreview"],
-        ["libcamera-jpeg", "-o", IMAGE_PATH, "--width", "640", "--height", "480", "-q", "80", "-t", "500", "--nopreview"],
-        ["raspistill", "-o", IMAGE_PATH, "-w", "640", "-h", "480", "-q", "80", "-t", "500", "-n"]
+        ["rpicam-jpeg", "-o", IMAGE_PATH, "--width", "320", "--height", "240", "-q", "80", "-t", "500", "--nopreview"],
+        ["libcamera-jpeg", "-o", IMAGE_PATH, "--width", "320", "--height", "240", "-q", "80", "-t", "500", "--nopreview"],
+        ["raspistill", "-o", IMAGE_PATH, "-w", "320", "-h", "240", "-q", "80", "-t", "500", "-n"]
     ]
     
     for cmd in camera_cmds:
@@ -40,7 +41,9 @@ def send_to_gemma():
     }
     data = {
         "model": "google/gemma-3-4b-it",
-        "prompt": "You are the robot's vision system. Describe exactly what you see in this camera frame."
+        "prompt": "You are a fast robot vision system. Describe what you see in under 10 words.",
+        "max_tokens": 50,
+        "temperature": 0.4
     }
     
     try:
