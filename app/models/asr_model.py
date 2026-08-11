@@ -65,3 +65,6 @@ class NeMoASRModel:
         except Exception as e:
             logger.error(f"Error during transcription: {e}")
             raise
+        finally:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
