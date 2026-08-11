@@ -541,15 +541,25 @@ async def process_action(
             "For magnitude, front and back units are in feet, and left and right units are in angle degrees."
         )
         
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": command}
+                ]
+            }
+        ]
+        
         # Call VLM
         result = await loop.run_in_executor(
             None,
             lambda: model.generate_completion(
                 image=image,
-                prompt=command,
                 temperature=0.7,
                 max_tokens=512,
-                msgs=[{"role": "system", "content": system_prompt}]
+                msgs=messages
             )
         )
         
