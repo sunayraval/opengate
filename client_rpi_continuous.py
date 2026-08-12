@@ -185,6 +185,16 @@ def main():
             except Exception:
                 pass
                 
+        # 3. Read debug logs from Arduino
+        if ser:
+            try:
+                while ser.in_waiting > 0:
+                    arduino_log = ser.readline().decode('utf-8', errors='ignore').strip()
+                    if arduino_log:
+                        print(f"🤖 ARDUINO: {arduino_log}")
+            except Exception:
+                pass
+                
         time.sleep(1)
 
 if __name__ == "__main__":
