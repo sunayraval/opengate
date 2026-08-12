@@ -627,9 +627,9 @@ async def process_action(
                 formatted_actions = []
             
         except Exception as e:
-            logger.error(f"Failed to parse JSON from Gemma: {e}. Raw text: {raw_text}")
+            logger.error(f"Failed to parse JSON from VLM: {e}. Raw text: {raw_text}")
             formatted_actions = []
-            speech_text = "I could not understand that."
+            speech_text = f"I could not understand that. (Raw output: {raw_text})"
             
         # Synthesize audio
         audio_base64 = ""
