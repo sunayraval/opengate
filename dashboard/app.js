@@ -417,6 +417,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
                 
+                // Display raw JSON payload
+                const rawJson = JSON.stringify(data, (key, val) => {
+                    if (key === 'audio_base64') return '[BASE64_AUDIO_HIDDEN]';
+                    return val;
+                }, 2);
+                chatMessages.lastChild.innerHTML += `<br/><pre style="font-size: 0.75em; color: #a1a1aa; background: #18181b; padding: 8px; border-radius: 6px; margin-top: 8px; overflow-x: auto;">${rawJson}</pre>`;
+                
                 // Play audio if available
                 if (data.audio_base64) {
                     const audioSrc = "data:audio/wav;base64," + data.audio_base64;
