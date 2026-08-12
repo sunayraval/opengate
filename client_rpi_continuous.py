@@ -9,6 +9,12 @@ import sys
 import socket
 import concurrent.futures
 
+try:
+    import serial
+except ImportError:
+    print("❌ Error: pyserial is not installed. Please run: pip install pyserial")
+    sys.exit(1)
+
 IMAGE_PATH = "capture.jpg"
 
 def auto_discover_server(port=8000):
@@ -112,10 +118,27 @@ def send_action(command):
         if os.path.exists(IMAGE_PATH):
             os.remove(IMAGE_PATH)
 
+def setup_serial():
+    ports_to_try = ['/dev/ttyACM0', '/dev/ttyUSB0', '/dev/ttyACM1']
+    for port in ports_to_try:
+        try:
+            ser = serial.Serial(port, 115200, timeout=1)
+            print(f"✅ Connected to Arduino on {port}")
+            time.sleep(2) # Wait for Arduino to reset
+            return ser
+        except serial.SerialException:
+            pass
+            
+    print("⚠️ Could not connect to Arduino. Actions will not be sent over USB.")
+    return None
+
 def main():
     import json
-    print(f"📡 Pi Continuous Client started. Polling {SERVER_URL} for commands...")
+    ser = setup_serial()
+    print(f"📡 Pi Continuous Client started. Polling {SERVER_URL} for commands and actions...")
+    
     while True:
+        # 1. Poll for dashboard commands
         try:
             req = urllib.request.Request(f"{SERVER_URL}/api/v1/commands/pop", method="GET")
             with urllib.request.urlopen(req, timeout=5.0) as response:
@@ -128,6 +151,29 @@ def main():
                     send_action(command)
         except Exception:
             pass
+            
+        # 2. Poll for robot actions
+        if ser:
+            try:
+                req = urllib.request.Request(f"{SERVER_URL}/api/v1/robot/actions/pop", method="GET")
+                with urllib.request.urlopen(req, timeout=5.0) as response:
+                    data = json.loads(response.read().decode('utf-8'))
+                    actions = data.get("actions", [])
+                    
+                    if actions:
+                        print(f"📥 Received new actions: {actions}")
+                        for act in actions:
+                            direction = act.get("Direction", "None").upper()
+                            magnitude = str(act.get("Magnitude", "0"))
+                            
+                            if direction != "NONE" and magnitude != "0":
+                                command = f"{direction} {magnitude}\n"
+                                print(f"🚀 Sending to Arduino: {command.strip()}")
+                                ser.write(command.encode('utf-8'))
+                                time.sleep(1)
+            except Exception:
+                pass
+                
         time.sleep(1)
 
 if __name__ == "__main__":
