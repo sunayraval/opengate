@@ -425,20 +425,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Display the speech
                 appendChatMessage("AI", data.speech, "ai-msg");
                 
-                // Display the actions beautifully formatted
-                if (data.actions && data.actions.length > 0) {
-                    let actionsHtml = `<div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px; width: 100%;">`;
-                    data.actions.forEach((act, idx) => {
-                        actionsHtml += `
-                            <div style="background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.2); border-left: 3px solid #4ade80; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 0.85em; display: flex; justify-content: space-between; align-items: center;">
-                                <span style="color: #a1a1aa; font-weight: 500;">Action ${idx + 1}</span>
-                                <span style="color: #4ade80; font-weight: 600; background: rgba(74, 222, 128, 0.15); padding: 2px 8px; border-radius: 4px;">${act.Direction.toUpperCase()} ➔ ${act.Magnitude}</span>
-                            </div>
-                        `;
-                    });
-                    actionsHtml += `</div>`;
-                    chatMessages.lastChild.innerHTML += actionsHtml;
+                // Display the actions in a SEPARATE message
+                let actionsHtml = `<div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px; width: 100%;">`;
+                
+                let actionsToDisplay = data.actions;
+                if (!actionsToDisplay || actionsToDisplay.length === 0) {
+                    actionsToDisplay = [{ Direction: 'None', Magnitude: '0' }];
                 }
+                
+                actionsToDisplay.forEach((act, idx) => {
+                    const dir = act.Direction || 'None';
+                    const mag = act.Magnitude || '0';
+                    actionsHtml += `
+                        <div style="background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.2); border-left: 3px solid #4ade80; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 0.85em; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: #a1a1aa; font-weight: 500;">Action ${idx + 1}</span>
+                            <span style="color: #4ade80; font-weight: 600; background: rgba(74, 222, 128, 0.15); padding: 2px 8px; border-radius: 4px;">${dir.toUpperCase()} ➔ ${mag}</span>
+                        </div>
+                    `;
+                });
+                actionsHtml += `</div>`;
+                
+                appendChatMessage("System", `<strong>Execution Plan:</strong>${actionsHtml}`, "system-msg");
                 
                 // Audio Playback
                 if (data.audio_base64) {
