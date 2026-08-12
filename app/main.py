@@ -602,12 +602,14 @@ async def process_action(
             if start_idx != -1 and end_idx != -1:
                 clean_text = clean_text[start_idx:end_idx+1]
                 
-            parsed_json = json.loads(clean_text)
+            parsed_json = json.loads(clean_text, strict=False)
             
             # Lowercase all keys to avoid casing issues (e.g. Speech vs speech)
             def lowercase_keys(obj):
                 if isinstance(obj, dict):
                     return {k.lower(): lowercase_keys(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [lowercase_keys(v) for v in obj]
                 return obj
                 
             safe_json = lowercase_keys(parsed_json)
@@ -720,7 +722,7 @@ async def communicate_text(request: Request):
             if start_idx != -1 and end_idx != -1:
                 clean_text = clean_text[start_idx:end_idx+1]
                 
-            parsed_json = json.loads(clean_text)
+            parsed_json = json.loads(clean_text, strict=False)
             
             def lowercase_keys(obj):
                 if isinstance(obj, dict):
