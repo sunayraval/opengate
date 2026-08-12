@@ -649,7 +649,8 @@ async def process_action(
             "transcription": command,
             "speech": speech_text,
             "actions": formatted_actions,
-            "audio_base64": audio_base64
+            "audio_base64": audio_base64,
+            "raw_json": raw_text
         }
         
         pending_responses.append(response_payload)
@@ -769,10 +770,13 @@ async def communicate_text(request: Request):
             "transcription": command,
             "speech": speech_text,
             "actions": formatted_actions,
-            "audio_base64": audio_base64
+            "audio_base64": audio_base64,
+            "raw_json": raw_text
         }
         
+        # Enqueue the response for continuous polling
         command_queue.append(response_payload)
+        
         return response_payload
         
     except Exception as e:

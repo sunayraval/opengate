@@ -447,6 +447,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 appendChatMessage("System", `<strong>Execution Plan:</strong>${actionsHtml}`, "system-msg");
                 
+                if (data.raw_json) {
+                    appendChatMessage("System", `<strong>Raw Model Output:</strong><br/><pre style="font-size: 0.75em; color: #a1a1aa; background: #18181b; padding: 8px; border-radius: 6px; margin-top: 8px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;">${data.raw_json}</pre>`, "system-msg");
+                }
+                
                 // Audio Playback
                 if (data.audio_base64) {
                     const audioSrc = "data:audio/wav;base64," + data.audio_base64;
