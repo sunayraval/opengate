@@ -427,21 +427,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Display the actions beautifully formatted
                 if (data.actions && data.actions.length > 0) {
+                    let actionsHtml = `<div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px; width: 100%;">`;
                     data.actions.forEach((act, idx) => {
-                        const actionText = `<br/><small style="color: #4ade80;">[Action ${idx + 1}] Direction: ${act.Direction}, Magnitude: ${act.Magnitude}</small>`;
-                        // Append action to the same message
-                        chatMessages.lastChild.innerHTML += actionText;
+                        actionsHtml += `
+                            <div style="background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.2); border-left: 3px solid #4ade80; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 0.85em; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="color: #a1a1aa; font-weight: 500;">Action ${idx + 1}</span>
+                                <span style="color: #4ade80; font-weight: 600; background: rgba(74, 222, 128, 0.15); padding: 2px 8px; border-radius: 4px;">${act.Direction.toUpperCase()} ➔ ${act.Magnitude}</span>
+                            </div>
+                        `;
                     });
+                    actionsHtml += `</div>`;
+                    chatMessages.lastChild.innerHTML += actionsHtml;
                 }
                 
-                // Display raw JSON payload
-                const rawJson = JSON.stringify(data, (key, val) => {
-                    if (key === 'audio_base64') return '[BASE64_AUDIO_HIDDEN]';
-                    return val;
-                }, 2);
-                chatMessages.lastChild.innerHTML += `<br/><pre style="font-size: 0.75em; color: #a1a1aa; background: #18181b; padding: 8px; border-radius: 6px; margin-top: 8px; overflow-x: auto;">${rawJson}</pre>`;
-                
-                // Play audio if available
+                // Audio Playback
                 if (data.audio_base64) {
                     const audioSrc = "data:audio/wav;base64," + data.audio_base64;
                     const audio = new Audio(audioSrc);
