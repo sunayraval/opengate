@@ -17,20 +17,25 @@ class HuggingFaceVLM(BaseVisionModel):
         if hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported():
             target_dtype = torch.bfloat16
         else:
-            target_dtype = torch.float16
+            target_dtype = torch.float32
 
         # Check if bitsandbytes is installed to prevent VRAM spillover on 12GB cards
         try:
             import bitsandbytes
             from transformers import BitsAndBytesConfig
-            # Use 4-bit quantization to drastically reduce memory usage (4GB instead of 8GB)
-            quantization_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_compute_dtype=target_dtype,
-                bnb_4bit_use_double_quant=True,
-                bnb_4bit_quant_type="nf4"
-            )
-            print(f"✅ bitsandbytes found! Loading {self.model_name} in 4-bit precision for maximum speed on 12GB GPUs.")
+            if target_dtype == torch.float32:
+                # 4-bit bitsandbytes crashes with float32 compute. Use 8-bit for safety.
+                quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+                print(f"✅ bitsandbytes found! Loading {self.model_name} in 8-bit precision (FP32 fallback) for stability.")
+            else:
+                # Use 4-bit quantization to drastically reduce memory usage
+                quantization_config = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_compute_dtype=target_dtype,
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_quant_type="nf4"
+                )
+                print(f"✅ bitsandbytes found! Loading {self.model_name} in 4-bit precision for maximum speed on 12GB GPUs.")
         except ImportError:
             quantization_config = None
             print(f"⚠️ bitsandbytes not found. Loading in full {target_dtype}. Warning: May spill to System RAM and run slow if VRAM is full.")
@@ -196,7 +201,7 @@ class HuggingFaceVLM(BaseVisionModel):
                 inputs = self.processor(text=[text_prompt], return_tensors="pt")
                 
             # Cast inputs correctly
-            compute_dtype = torch.bfloat16 if (hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported()) else torch.float16
+            compute_dtype = torch.bfloat16 if (hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported()) else torch.float32
             inputs = {k: v.to(self.device, dtype=compute_dtype) if torch.is_floating_point(v) else v.to(self.device) for k, v in inputs.items()}
 
             input_len = inputs["input_ids"].shape[1]
