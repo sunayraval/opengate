@@ -3,6 +3,9 @@ import os
 from pathlib import Path
 from typing import Optional
 
+import os
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+
 try:
     from pydantic_settings import BaseSettings, SettingsConfigDict
 except ImportError:
