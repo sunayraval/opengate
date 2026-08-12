@@ -46,7 +46,7 @@ void parseCommand(String cmd) {
   
   if (direction == "FORWARD") {
     forward(magnitude);
-  } else if (direction == "BACKWARD" || direction == "BACK") {
+  } else if (direction.startsWith("BACK")) {
     back(magnitude);
   } else if (direction == "LEFT") {
     left(magnitude);
@@ -62,7 +62,7 @@ void parseCommand(String cmd) {
 void forward(int a) {
   servo1.write(rf); // Full speed clockwise
   servo2.write(lf);
-  delay(a * 2800);
+  delay(a * 2800UL);
   stop();
 }
 
@@ -74,20 +74,20 @@ void stop() {
 void left(int a) {
   servo2.write(94);
   servo1.write(rf);
-  delay(a * 31);
+  delay(a * 31UL);
   stop();
 }
 
 void right(int a) {
   servo1.write(89);
   servo2.write(lf);
-  delay(a * 29.1);
+  delay((unsigned long)(a * 29.1));
   stop();
 }
 
 void back(int a) {
   servo1.write(105);
   servo2.write(0);
-  delay(a * 2700);
+  delay(a * 2700UL);
   stop();
 }

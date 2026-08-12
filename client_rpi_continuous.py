@@ -124,7 +124,17 @@ def setup_serial():
         try:
             ser = serial.Serial(port, 115200, timeout=1)
             print(f"✅ Connected to Arduino on {port}")
-            time.sleep(2) # Wait for Arduino to reset
+            print("⏳ Waiting for Arduino to boot...")
+            
+            # Wait up to 5 seconds for the Arduino to send its ready message
+            start_time = time.time()
+            while time.time() - start_time < 5:
+                line = ser.readline().decode('utf-8', errors='ignore').strip()
+                if "ready" in line.lower():
+                    print("✅ Arduino is ready!")
+                    return ser
+            
+            print("⚠️ Did not see ready message, but proceeding anyway.")
             return ser
         except serial.SerialException:
             pass
@@ -170,6 +180,7 @@ def main():
                                 command = f"{direction} {magnitude}\n"
                                 print(f"🚀 Sending to Arduino: {command.strip()}")
                                 ser.write(command.encode('utf-8'))
+                                ser.flush()
                                 time.sleep(1)
             except Exception:
                 pass
