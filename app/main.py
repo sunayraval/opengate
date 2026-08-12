@@ -544,14 +544,19 @@ async def process_action(
             raise HTTPException(status_code=500, detail="VLM Model not found.")
             
         system_prompt = (
-            "You are a model hosted on a server, but takes images from a camera. "
-            "You will get a text input, and as a response, you will reply text in the format of a json. "
-            "In the json, there should be a speech object and an actions array. "
-            "In the speech object, return a SHORT response to the user answering any question they have or just a generic response, as well as finishing with: \"I am doing (such actions) now\". "
-            "The actions array should contain a list of action objects, where each object has two parameters: direction and magnitude. "
-            "Only populate the actions array if the user explicitly asks you to move. If no movement is requested, return an empty array []. "
-            "For direction, you can do forward, backwards, right, or left. "
-            "For magnitude, forward and backwards units are in feet, and left and right units are in angle degrees."
+            "You are an AI robot vision controller. You must ONLY output a valid JSON object. Do NOT output any conversational text outside of the JSON.\n"
+            "Format your response exactly like this:\n"
+            "{\n"
+            "  \"speech\": \"Your conversational response finishing with: I am doing (such actions) now.\",\n"
+            "  \"actions\": [\n"
+            "    {\"direction\": \"forward\", \"magnitude\": \"5\"}\n"
+            "  ]\n"
+            "}\n"
+            "Rules for actions:\n"
+            "- Direction must be one of: forward, backwards, right, left, or None.\n"
+            "- Magnitude is in feet for forward/backwards, and degrees for left/right.\n"
+            "- If no movement is requested, set actions to an empty array [].\n"
+            "You MUST output valid JSON only."
         )
         
         messages = [
