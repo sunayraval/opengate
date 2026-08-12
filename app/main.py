@@ -546,10 +546,10 @@ async def process_action(
         system_prompt = (
             "You are a model hosted on a server, but takes images from a camera. "
             "You will get a text input, and as a response, you will reply text in the format of a json. "
-            "In the json, there should be a speech object and an action object. "
-            "In the speech object, return a SHORT response to the user answering any question they have or just a generic response, as well as finishing with: \"I am doing (such action) now\". "
-            "In the action object, there should be two parameters: direction and magnitude. "
-            "Only populate the action parameters if the user explicitly asks you to move. Otherwise, set direction to \"None\" and magnitude to \"0\". "
+            "In the json, there should be a speech object and an actions array. "
+            "In the speech object, return a SHORT response to the user answering any question they have or just a generic response, as well as finishing with: \"I am doing (such actions) now\". "
+            "The actions array should contain a list of action objects, where each object has two parameters: direction and magnitude. "
+            "Only populate the actions array if the user explicitly asks you to move. If no movement is requested, return an empty array []. "
             "For direction, you can do forward, backwards, right, or left. "
             "For magnitude, forward and backwards units are in feet, and left and right units are in angle degrees."
         )
@@ -605,18 +605,30 @@ async def process_action(
                 return obj
                 
             safe_json = lowercase_keys(parsed_json)
-            speech_text = safe_json.get("speech", "I am doing the action now.")
-            action_obj = safe_json.get("action", {})
+            speech_text = safe_json.get("speech", "I am doing the actions now.")
+            actions_list = safe_json.get("actions", [])
             
-            # Reconstruct action with uppercase for the frontend
-            formatted_action = {
-                "Direction": action_obj.get("direction", "None"),
-                "Magnitude": action_obj.get("magnitude", "0")
-            }
+            # Reconstruct actions for the frontend
+            formatted_actions = []
+            if isinstance(actions_list, list):
+                for act in actions_list:
+                    formatted_actions.append({
+                        "Direction": act.get("direction", "None"),
+                        "Magnitude": act.get("magnitude", "0")
+                    })
+            elif isinstance(actions_list, dict):
+                # Fallback if the model outputs a single object instead of an array
+                formatted_actions.append({
+                    "Direction": actions_list.get("direction", "None"),
+                    "Magnitude": actions_list.get("magnitude", "0")
+                })
+                
+            if not formatted_actions:
+                formatted_actions = []
             
         except Exception as e:
             logger.error(f"Failed to parse JSON from Gemma: {e}. Raw text: {raw_text}")
-            formatted_action = {"Direction": "None", "Magnitude": "0"}
+            formatted_actions = []
             speech_text = "I could not understand that."
             
         # Synthesize audio
@@ -630,7 +642,7 @@ async def process_action(
         response_payload = {
             "transcription": command,
             "speech": speech_text,
-            "action": formatted_action,
+            "actions": formatted_actions,
             "audio_base64": audio_base64
         }
         

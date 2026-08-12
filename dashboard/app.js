@@ -408,11 +408,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Display the speech
                 appendChatMessage("AI", data.speech, "ai-msg");
                 
-                // Display the action beautifully formatted
-                if (data.action) {
-                    const actionText = `<br/><small style="color: #4ade80;">[Action] Direction: ${data.action.Direction}, Magnitude: ${data.action.Magnitude}</small>`;
-                    // Append action to the same message
-                    chatMessages.lastChild.innerHTML += actionText;
+                // Display the actions beautifully formatted
+                if (data.actions && data.actions.length > 0) {
+                    data.actions.forEach((act, idx) => {
+                        const actionText = `<br/><small style="color: #4ade80;">[Action ${idx + 1}] Direction: ${act.Direction}, Magnitude: ${act.Magnitude}</small>`;
+                        // Append action to the same message
+                        chatMessages.lastChild.innerHTML += actionText;
+                    });
                 }
                 
                 // Play audio if available
