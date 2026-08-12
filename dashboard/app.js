@@ -375,13 +375,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Handle Text Input (Dry Send)
-    function handleSendText() {
+    // Handle Text Input
+    async function handleSendText() {
         const text = chatInput.value.trim();
         if (!text) return;
         appendChatMessage("You", text, "user-msg");
         chatInput.value = '';
-        // Dry send - no backend call yet
+        
+        try {
+            const aiServerUrl = `http://${window.location.hostname}:8000/api/v1/communicate/text`;
+            const res = await fetch(aiServerUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text })
+            });
+            const data = await res.json();
+            
+            if (data.detail) {
+                appendChatMessage('System', `Error: ${data.detail}`, 'system-msg');
+            }
+            // Background polling will pick up the response payload from the queue.
+        } catch (err) {
+            console.error("Text endpoint error", err);
+            appendChatMessage("System", `Error sending text: ${err.message}`, "log-error");
+        }
     }
 
     btnSendText.addEventListener('click', handleSendText);

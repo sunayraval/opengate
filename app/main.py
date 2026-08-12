@@ -658,6 +658,125 @@ async def process_action(
         logger.error(f"Action processing failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/v1/communicate/text")
+async def communicate_text(request: Request):
+    try:
+        body = await request.json()
+        command = body.get("text", "")
+        if not command:
+            raise HTTPException(status_code=400, detail="No text provided")
+            
+        model = registry.get_model(config.DEFAULT_COMPLETION_MODEL)
+        if not model:
+            raise HTTPException(status_code=500, detail="VLM Model not found.")
+            
+        system_prompt = (
+            "You are an AI robot vision controller (Jarvis). You must ONLY output a valid JSON object. Do NOT output any conversational text outside of the JSON.\n"
+            "Format your response exactly like this:\n"
+            "{\n"
+            "  \"speech\": \"Your conversational response finishing with: I am doing (such actions) now.\",\n"
+            "  \"actions\": [\n"
+            "    {\"direction\": \"forward\", \"magnitude\": \"5\"}\n"
+            "  ]\n"
+            "}\n"
+            "Rules for actions:\n"
+            "- Direction must be one of: forward, backwards, right, left, or None.\n"
+            "- Magnitude is in feet for forward/backwards, and degrees for left/right.\n"
+            "- If no movement is requested, set actions to an empty array [].\n"
+            "You MUST output valid JSON only."
+        )
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": command}
+        ]
+        
+        def run_vlm():
+            with gpu_lock:
+                return model.generate_completion(
+                    image=None,
+                    temperature=0.7,
+                    max_tokens=512,
+                    msgs=messages
+                )
+                
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(None, run_vlm)
+        
+        raw_text = result["choices"][0]["message"]["content"]
+        
+        # Parse JSON
+        try:
+            clean_text = raw_text.strip()
+            if clean_text.startswith("```json"): clean_text = clean_text[7:]
+            if clean_text.startswith("```"): clean_text = clean_text[3:]
+            if clean_text.endswith("```"): clean_text = clean_text[:-3]
+            
+            start_idx = clean_text.find('{')
+            end_idx = clean_text.rfind('}')
+            if start_idx != -1 and end_idx != -1:
+                clean_text = clean_text[start_idx:end_idx+1]
+                
+            parsed_json = json.loads(clean_text)
+            
+            def lowercase_keys(obj):
+                if isinstance(obj, dict):
+                    return {k.lower(): lowercase_keys(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [lowercase_keys(v) for v in obj]
+                return obj
+                
+            safe_json = lowercase_keys(parsed_json)
+            speech_text = safe_json.get("speech", "I am doing the actions now.")
+            actions_list = safe_json.get("actions", [])
+            
+            formatted_actions = []
+            if isinstance(actions_list, list):
+                for act in actions_list:
+                    formatted_actions.append({
+                        "Direction": str(act.get("direction", "None")),
+                        "Magnitude": str(act.get("magnitude", "0"))
+                    })
+            elif isinstance(actions_list, dict):
+                formatted_actions.append({
+                    "Direction": str(actions_list.get("direction", "None")),
+                    "Magnitude": str(actions_list.get("magnitude", "0"))
+                })
+                
+            if not formatted_actions:
+                formatted_actions = []
+            
+        except Exception as e:
+            logger.error(f"Failed to parse JSON from VLM: {e}. Raw text: {raw_text}")
+            formatted_actions = []
+            speech_text = f"I could not understand that. (Raw output: {raw_text})"
+            
+        # Synthesize audio
+        audio_base64 = ""
+        tts = registry.get_model("kokoro-tts")
+        if tts and tts.is_loaded:
+            try:
+                def run_tts():
+                    with gpu_lock:
+                        return tts.synthesize_base64(speech_text)
+                audio_base64 = await loop.run_in_executor(None, run_tts)
+            except Exception as e:
+                logger.error(f"TTS Synthesis failed: {e}")
+                
+        response_payload = {
+            "transcription": command,
+            "speech": speech_text,
+            "actions": formatted_actions,
+            "audio_base64": audio_base64
+        }
+        
+        command_queue.append(response_payload)
+        return response_payload
+        
+    except Exception as e:
+        logger.error(f"Text endpoint failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     logger.info(f"Starting Uvicorn server on {config.HOST}:{config.PORT}...")

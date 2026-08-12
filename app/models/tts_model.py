@@ -25,7 +25,7 @@ class KokoroTTSModel:
             logger.error(f"Failed to load Kokoro TTS: {e}")
             raise
             
-    def synthesize_base64(self, text: str, voice: str = 'af_heart') -> str:
+    def synthesize_base64(self, text: str, voice: str = 'bm_george') -> str:
         """
         Synthesizes text into speech and returns a base64 encoded WAV string.
         """
