@@ -139,47 +139,10 @@ class HuggingFaceVLM(BaseVisionModel):
                         if block.get("type") == "image_url":
                             block["type"] = "image"
 
-        if hasattr(self.model, "chat"):
-            tokenizer = getattr(self.processor, "tokenizer", self.processor)
-            clean_msgs = []
-            for msg in messages:
-                role = msg.get("role", "user")
-                content = msg.get("content", "")
-                text_content = ""
-                if isinstance(content, list):
-                    for block in content:
-                        if block.get("type") == "text":
-                            text_content += block.get("text", "")
-                else:
-                    text_content = str(content)
-                clean_msgs.append({"role": role, "content": text_content})
-                
-            import inspect
-            chat_sig = inspect.signature(self.model.chat)
-            chat_kwargs = {
-                "image": image,
-                "msgs": clean_msgs,
-                "tokenizer": tokenizer,
-                "sampling": temperature > 0,
-                "temperature": temperature if temperature > 0 else 0.7,
-                "max_new_tokens": max_tokens
-            }
-            if "context" in chat_sig.parameters:
-                chat_kwargs["context"] = None
-                
-            with torch.inference_mode():
-                res = self.model.chat(**chat_kwargs)
-                    
-            res_str = res[0] if isinstance(res, tuple) else res
-            prompt_tokens = 0
-            completion_tokens = 0
-            total_tokens = 0
-        else:
-            try:
-                text_prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
-            except ValueError:
-                # Fallback for models without a registered chat_template
-                text_prompt = ""
+        try:
+            if hasattr(self.model, "chat"):
+                tokenizer = getattr(self.processor, "tokenizer", self.processor)
+                clean_msgs = []
                 for msg in messages:
                     role = msg.get("role", "user")
                     content = msg.get("content", "")
@@ -188,54 +151,104 @@ class HuggingFaceVLM(BaseVisionModel):
                         for block in content:
                             if block.get("type") == "text":
                                 text_content += block.get("text", "")
-                            elif block.get("type") == "image":
-                                text_content += "<image>\n"
                     else:
                         text_content = str(content)
-                    text_prompt += f"User: {text_content}\n" if role == "user" else f"Assistant: {text_content}\n"
-                text_prompt += "Assistant: "
-            
-            if image is not None:
-                inputs = self.processor(text=[text_prompt], images=[image], return_tensors="pt")
+                    clean_msgs.append({"role": role, "content": text_content})
+                    
+                import inspect
+                chat_sig = inspect.signature(self.model.chat)
+                chat_kwargs = {
+                    "image": image,
+                    "msgs": clean_msgs,
+                    "tokenizer": tokenizer,
+                    "sampling": temperature > 0,
+                    "temperature": temperature if temperature > 0 else 0.7,
+                    "max_new_tokens": max_tokens
+                }
+                if "context" in chat_sig.parameters:
+                    chat_kwargs["context"] = None
+                    
+                with torch.inference_mode():
+                    res = self.model.chat(**chat_kwargs)
+                        
+                res_str = res[0] if isinstance(res, tuple) else res
+                prompt_tokens = 0
+                completion_tokens = 0
+                total_tokens = 0
             else:
-                inputs = self.processor(text=[text_prompt], return_tensors="pt")
+                try:
+                    text_prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+                except ValueError:
+                    # Fallback for models without a registered chat_template
+                    text_prompt = ""
+                    for msg in messages:
+                        role = msg.get("role", "user")
+                        content = msg.get("content", "")
+                        text_content = ""
+                        if isinstance(content, list):
+                            for block in content:
+                                if block.get("type") == "text":
+                                    text_content += block.get("text", "")
+                                elif block.get("type") == "image":
+                                    text_content += "<image>\n"
+                        else:
+                            text_content = str(content)
+                        text_prompt += f"User: {text_content}\n" if role == "user" else f"Assistant: {text_content}\n"
+                    text_prompt += "Assistant: "
                 
-            # Cast inputs correctly
-            compute_dtype = torch.bfloat16 if (hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported()) else torch.float32
-            inputs = {k: v.to(self.device, dtype=compute_dtype) if torch.is_floating_point(v) else v.to(self.device) for k, v in inputs.items()}
+                if image is not None:
+                    inputs = self.processor(text=[text_prompt], images=[image], return_tensors="pt")
+                else:
+                    inputs = self.processor(text=[text_prompt], return_tensors="pt")
+                    
+                # Cast inputs correctly
+                compute_dtype = torch.bfloat16 if (hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported()) else torch.float32
+                inputs = {k: v.to(self.device, dtype=compute_dtype) if torch.is_floating_point(v) else v.to(self.device) for k, v in inputs.items()}
 
-            input_len = inputs["input_ids"].shape[1]
-            
-            with torch.no_grad():
-                output_ids = self.model.generate(
-                    **inputs,
-                    max_new_tokens=max_tokens,
-                    temperature=temperature,
-                    do_sample=temperature > 0
-                )
+                input_len = inputs["input_ids"].shape[1]
                 
-            out_tokens = output_ids[0]
-            if out_tokens.shape[0] >= input_len and torch.equal(out_tokens[:input_len], inputs["input_ids"][0]):
-                generated_ids = out_tokens[input_len:]
-            else:
-                generated_ids = out_tokens
-    
-            res_str = self.processor.decode(generated_ids, skip_special_tokens=True)
-            prompt_tokens = len(inputs["input_ids"][0])
-            completion_tokens = len(generated_ids)
-            total_tokens = prompt_tokens + completion_tokens
-
-        elapsed_ms = self.measure_time_ms(start_time)
+                with torch.no_grad():
+                    output_ids = self.model.generate(
+                        **inputs,
+                        max_new_tokens=max_tokens,
+                        temperature=temperature,
+                        do_sample=temperature > 0
+                    )
+                    
+                out_tokens = output_ids[0]
+                if out_tokens.shape[0] >= input_len and torch.equal(out_tokens[:input_len], inputs["input_ids"][0]):
+                    generated_ids = out_tokens[input_len:]
+                else:
+                    generated_ids = out_tokens
         
-        # Aggressive memory cleanup to prevent OOM/CUDA device-side asserts over time
-        import gc
-        if 'inputs' in locals():
-            del inputs
-        if 'output_ids' in locals():
-            del output_ids
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+                res_str = self.processor.decode(generated_ids, skip_special_tokens=True)
+                prompt_tokens = len(inputs["input_ids"][0])
+                completion_tokens = len(generated_ids)
+                total_tokens = prompt_tokens + completion_tokens
+        except torch.cuda.OutOfMemoryError as e:
+            print(f"⚠️ CUDA Out of Memory Error! Recovering... ({e})")
+            res_str = '{"speech": "I ran out of memory trying to process that complex action.", "actions": []}'
+            prompt_tokens = 0
+            completion_tokens = 0
+            total_tokens = 0
+        except Exception as e:
+            print(f"⚠️ Error during generation: {e}")
+            res_str = f'{{"speech": "I encountered an error: {e}", "actions": []}}'
+            prompt_tokens = 0
+            completion_tokens = 0
+            total_tokens = 0
+        finally:
+            elapsed_ms = self.measure_time_ms(start_time)
+            
+            # Aggressive memory cleanup to prevent OOM/CUDA device-side asserts over time
+            import gc
+            if 'inputs' in locals():
+                del inputs
+            if 'output_ids' in locals():
+                del output_ids
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
             
         return {
             "id": f"cmpl-{int(time.time()*1000)}",
