@@ -29,9 +29,10 @@ try:
 except ImportError:
     tts_model = None
 
-# Global queues for Dashboard-Pi interaction
+# Global State
 pending_commands = []
 pending_responses = []
+robot_action_queue = []
 from app.schemas import (
     HealthResponse,
     ModelInfo,
@@ -518,7 +519,13 @@ async def pop_command():
 async def pop_response():
     if pending_responses:
         return pending_responses.pop(0)
-    return {"response": None}
+    return {"status": "empty"}
+
+@app.get("/api/v1/robot/actions/pop", tags=["Communicate"])
+async def pop_robot_actions():
+    if robot_action_queue:
+        return {"actions": robot_action_queue.pop(0)}
+    return {"actions": []}
 
 import json
 
@@ -533,6 +540,9 @@ async def process_action(
     Pushes the response to the pending_responses queue for the Dashboard to read.
     """
     try:
+        import time
+        start_time = time.time()
+        
         # Load image
         img_bytes = await image_file.read()
         loop = asyncio.get_running_loop()
@@ -656,6 +666,16 @@ async def process_action(
         }
         
         pending_responses.append(response_payload)
+        if formatted_actions:
+            robot_action_queue.append(formatted_actions)
+            
+        latency_ms = int((time.time() - start_time) * 1000)
+        try:
+            with open("latency_metrics.txt", "a") as f:
+                f.write(f"{latency_ms}\n")
+        except Exception as e:
+            logger.error(f"Failed to save latency: {e}")
+            
         return {"status": "success"}
         
     except Exception as e:
@@ -665,12 +685,15 @@ async def process_action(
 @app.post("/api/v1/communicate/text")
 async def communicate_text(request: Request):
     try:
+        import time
+        start_time = time.time()
+        
         body = await request.json()
         command = body.get("text", "")
         if not command:
             raise HTTPException(status_code=400, detail="No text provided")
             
-        model = registry.get_model(config.DEFAULT_COMPLETION_MODEL)
+        model = model_registry.get_model(config.DEFAULT_COMPLETION_MODEL)
         if not model:
             raise HTTPException(status_code=500, detail="VLM Model not found.")
             
@@ -758,7 +781,7 @@ async def communicate_text(request: Request):
             
         # Synthesize audio
         audio_base64 = ""
-        tts = registry.get_model("kokoro-tts")
+        tts = model_registry.get_model("kokoro-tts")
         if tts and tts.is_loaded:
             try:
                 def run_tts():
@@ -779,6 +802,9 @@ async def communicate_text(request: Request):
         # Enqueue the response for continuous polling
         command_queue.append(response_payload)
         
+        if formatted_actions:
+            robot_action_queue.append(formatted_actions)
+            
         return response_payload
         
     except Exception as e:
